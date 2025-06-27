@@ -1,0 +1,13 @@
+- uri: cmd://python
+  type: external-environment
+  args:
+    - "-c"
+    - |
+        import json, sys
+        data = json.load(sys.stdin)
+        params = data.get("resource_params")
+        env_file = params.get("env_file", ".env")
+        with open(env_file) as f:
+            content = f.read().strip()
+        env_map = dict([x.split("=",1) for x in content.strip().splitlines()])
+        print(json.dumps({"resource_outputs": env_map}))

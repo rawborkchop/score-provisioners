@@ -1,0 +1,51 @@
+- uri: template://smtp
+  type: smtp
+  init: |
+    serviceName: smtp
+    randomPassword: {{ randAlphaNum 16 | quote }}
+    domain: {{ dig "annotations" "compose.score.dev/domain" "example.com" .Metadata | quote }}
+    publishPort: {{ dig "annotations" "compose.score.dev/publish-port" "25" .Metadata | quote }}
+    submissionPort: {{ dig "annotations" "compose.score.dev/submission-port" "587" .Metadata | quote }}
+    smtpUser: {{ dig "annotations" "compose.score.dev/username" "smtp_user" .Metadata | quote }}
+  state: |
+    host: {{ dig "serviceName" .Init.serviceName .State | quote }}
+    port: {{ dig "publishPort" .Init.publishPort .State | quote }}
+    submissionPort: {{ dig "submissionPort" .Init.submissionPort .State | quote }}
+    username: {{ dig "smtpUser" .Init.smtpUser .State | quote }}
+    password: {{ dig "randomPassword" .Init.randomPassword .State | quote }}
+  outputs: |
+    host: {{ .State.host }}
+    port: {{ .State.port }}
+    submissionPort: {{ .State.submissionPort }}
+    username: {{ .State.username | quote }}
+    password: {{ .State.password | quote }}
+  volumes: |
+    smtpdata:
+      driver: local
+    smtpconfig:
+      driver: local
+  services: |
+    services:
+      mailpit:
+        image: axllent/mailpit:latest
+        container_name: mailpit
+        ports:
+          - "1025:1025"    # SMTP port
+          - "8025:8025"    # Web UI port
+        volumes:
+          - ./mailpit-data:/data
+        restart: unless-stopped
+        environment:
+          # Optional: set an API key for secure web UI access
+          # MAILPIT_API_KEY: "your_api_key_here"
+          # Optional: customize storage path inside container
+          # MAILPIT_STORAGE: "/data"
+  info_logs: |
+    - "{{.Uid}}: Para conectar al SMTP:\n\
+        Host: {{ .State.host }}\n\
+        Puerto: {{ .State.port }} (SMTP), {{ .State.submissionPort }} (Submission)\n\
+        Usuario: {{ .State.username }}@{{ .Init.domain }}\n\
+        Contraseña: {{ .State.password }}\n\
+        Ejemplo de conexión:\n\
+        \topenssl s_client -starttls smtp -crlf -connect {{ .State.host }}:{{ .State.submissionPort }} \
+        -quiet"

@@ -1,0 +1,15 @@
+- uri: template://custom-bind-mount
+  type: logs
+  outputs: |
+    type: bind
+    source: {{ .Params.partition}}:/logs
+    bind:
+      propagation: rprivate
+
+- uri: template://custom-bind-mount
+  type: directory
+  outputs: |
+    type: bind
+    source: {{ .Params.source}}
+    bind:
+      propagation: rprivate

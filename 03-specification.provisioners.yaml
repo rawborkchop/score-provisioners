@@ -1,0 +1,11 @@
+- uri: template://specification
+  type: framework-spec
+  outputs: |
+    framework: {{ .Params.framework}}
+    apptype: {{ .Params.apptype}}
+    version: "{{ .Params.version}}"
+
+- uri: cmd://powershell
+  type: certificate
+  args:
+    - .score-compose/certificate .ps1
