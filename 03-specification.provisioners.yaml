@@ -4,13 +4,3 @@
     framework: {{ .Params.framework}}
     apptype: {{ .Params.apptype}}
     version: "{{ .Params.version}}"
-
-- uri: cmd://powershell
-  type: certificate
-  args:
-    - .score-compose/certificate.ps1
-
-- uri: cmd://powershell
-  type: binaries
-  args:
-    - .score-compose/docker_file_generation.ps1

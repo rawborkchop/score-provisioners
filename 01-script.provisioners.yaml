@@ -11,3 +11,18 @@
             content = f.read().strip()
         env_map = dict([x.split("=",1) for x in content.strip().splitlines()])
         print(json.dumps({"resource_outputs": env_map}))
+
+- uri: cmd://powershell
+  type: certificate
+  args:
+    - .score-compose/certificate.ps1
+
+- uri: cmd://powershell
+  type: binaries
+  args:
+    - .score-compose/docker_file_generation.ps1
+
+- uri: cmd://powershell
+  type: binaries
+  args:
+    - .score-compose/kirol_app.ps1
