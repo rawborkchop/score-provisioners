@@ -23,6 +23,6 @@
     - .score-compose/docker_file_generation.ps1
 
 - uri: cmd://powershell
-  type: binaries
+  type: kirol-app
   args:
     - .score-compose/kirol_app.ps1
