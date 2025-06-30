@@ -12,13 +12,13 @@
       }
 
       if (-not (Test-Path $certPath)) {
-          $args = @(
+          $arguments = @(
                 'dev-certs'
                 'https'
                 '-ep'; $certPath
                 '-p'; $password
             )
-          & dotnet @args | Out-Null
+          & dotnet @arguments | Out-Null
       }
 
       $output = @{
