@@ -56,6 +56,7 @@ function Get-NugetPackage {
 }
 
 $inputJson = [Console]::In.ReadToEnd()
+
 $data = $inputJson | ConvertFrom-Json
 $params = $data.resource_params
 
@@ -72,13 +73,32 @@ if($projectPath) {
     Get-NugetPackage -packageId $name -packageVersion $version -downloadPath $downloadPath
     $path = $downloadPath
 } else {
-    Write-Error "No name, version or path provided"
+    #Write-Error "No name, version or path provided"
 }
 
-if($path) {
-    $path = Join-Path -Path $path -ChildPath "score.yaml"
+$path = Join-Path -Path $path -ChildPath "score.yaml"
+if((Test-Path $path) -and ($path -ne "score.yaml")) {
     score-compose generate $path --build "app={'context':'.', 'dockerfile':'Dockerfile'}"
+
+    $scoreContent = Get-Content -Path $path 
+    $name = ($scoreContent -split '\n' | Where-Object { $_ -match '^\s*name:\s*(.+)$' } | Select-Object -First 1) -replace '^\s*name:\s*', ''
+    $distinctPorts = @()
+    $service = $data.workload_services.$name
+    if ($service.ports) {
+        foreach ($portName in $service.ports.PSObject.Properties.Name) {
+            $port = $service.ports.$portName
+            if ($port.port -and $distinctPorts -notcontains $port.port) {
+                $distinctPorts += $port.port
+            }
+        }
+    }
 }
 
-# cmd /c 'echo {"resource_params":{"path":"src/KSoft.IntegrationServices.LSports.UCBets.gRPC.Server"}} | powershell -File .score-compose\kirol_app.ps1'
-# echo '{"resource_params":{"path":"src/KSoft.IntegrationServices.LSports.UCBets.gRPC.Server"}}' | .score-compose\kirol_app.ps1
+$output = @{
+    resource_outputs = @{
+        ports = $distinctPorts
+    }
+}
+
+$outputJson = $output | ConvertTo-Json
+[Console]::Out.Write($outputJson)
