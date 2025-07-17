@@ -65,20 +65,20 @@ else
 
 $scoreContent = Get-ScoreContent -dirPath $dirPath
 
-$ports = @{}
-$portIndex = 0
-foreach ($key in $scoreContent.service.ports.Keys) 
-{
-    $ports["$portIndex"] = $scoreContent.service.ports[$key].port
-    $portIndex++
-}
-
 $shared = Initialize-SharedState -data $data
 $command = Get-ScoreComposeGenerateCommand -dirPath $dirPath
 
 if (-not $shared.commands.Contains($command))
 {
     $shared.commands += $command
+}
+
+$ports = @{}
+$portIndex = 0
+foreach ($key in $scoreContent.service.ports.Keys) 
+{
+    $ports["$portIndex"] = $scoreContent.service.ports[$key].port
+    $portIndex++
 }
 
 $output = @{
