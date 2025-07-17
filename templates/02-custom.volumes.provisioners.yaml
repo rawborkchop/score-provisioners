@@ -1,0 +1,45 @@
+- uri: template://custom-bind-mount
+  type: directory
+  outputs: |
+    type: bind
+    source: {{ .Params.source}}
+    bind:
+      propagation: rprivate
+
+- uri: template://custom-bind-mount
+  type: logs-dir
+  outputs: |
+    type: bind
+    source: C:/logs
+    bind:
+      propagation: rprivate
+
+- uri: template://custom-bind-mount
+  type: certs-dir
+  outputs: |
+    type: bind
+    source: C:/certs
+    bind:
+      propagation: rprivate
+
+# Custom provisioner for existing Docker volumes
+# This provisioner allows using existing Docker volumes by name instead of creating new ones
+
+- uri: template://existing-volume
+  type: volume
+  class: existing
+  description: Uses an existing Docker volume by name specified in params.source
+  init: |
+    volumeName: {{ .Params.source }}
+  state: |
+    name: {{ .Params.source }}
+  outputs: |
+    type: volume
+    source: {{ .State.name }}
+  volumes: |
+    {{ .State.name }}:
+      name: {{ .State.name }}
+      external: true
+  expected_outputs:
+    - source
+    - type 

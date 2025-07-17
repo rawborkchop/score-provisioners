@@ -25,21 +25,25 @@
     smtpconfig:
       driver: local
   services: |
-    services:
-      mailpit:
-        image: axllent/mailpit:latest
-        container_name: mailpit
-        ports:
-          - "1025:1025"    # SMTP port
-          - "8025:8025"    # Web UI port
-        volumes:
-          - ./mailpit-data:/data
-        restart: unless-stopped
-        environment:
-          # Optional: set an API key for secure web UI access
-          # MAILPIT_API_KEY: "your_api_key_here"
-          # Optional: customize storage path inside container
-          # MAILPIT_STORAGE: "/data"
+    {{ .State.host }}:
+      image: axllent/mailpit:latest
+      container_name: {{ .State.host }}
+      ports:
+      - target: 1025
+        published: {{ .State.port }}
+      - target: 8025
+        published: 8025
+      volumes:
+      - type: volume
+        source: smtpdata
+        target: /data
+      - type: volume
+        source: smtpconfig
+        target: /config
+      restart: unless-stopped
+      environment:
+        MP_SMTP_AUTH_ACCEPT_ANY: "1"
+        MP_SMTP_AUTH_ALLOW_INSECURE: "1"
   info_logs: |
     - "{{.Uid}}: Para conectar al SMTP:\n\
         Host: {{ .State.host }}\n\

@@ -1,4 +1,6 @@
 $output = @{
+    resource_outputs = @{
+    }
 }
 
 $outputJson = $output | ConvertTo-Json

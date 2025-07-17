@@ -2,7 +2,7 @@
       $data = $inputJson | ConvertFrom-Json
       $params = $data.resource_params
 
-      $certPath = if ($params.path) { $params.path } else { (Join-Path -Path $env:USERPROFILE -ChildPath "certs/aspnet.pfx")} #"C:/certs/aspnet.pfx"}
+      $certPath = if ($params.path) { $params.path } else { "C:/certs/aspnet.pfx" }
       $certFolder = Split-Path -Path $certPath -Parent
       $certName = Split-Path -Path $certPath -Leaf
       $password = if ($params.password) { $params.password } else { "password" }

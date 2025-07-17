@@ -22,7 +22,12 @@
   args:
     - .score-compose/docker_file_generation.ps1
 
-- uri: cmd://powershell
+- uri: cmd://pwsh
   type: kirol-app
   args:
     - .score-compose/kirol_app.ps1
+
+- uri: cmd://pwsh
+  type: framework
+  args:
+    - .score-compose/framework_spec.ps1
