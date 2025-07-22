@@ -1,4 +1,15 @@
 - uri: cmd://python
+  type: mssql
+  args:
+    - "-c"
+    - |
+        env_file = .mssql
+        with open(env_file) as f:
+            content = f.read().strip()
+        env_map = dict([x.split("=",1) for x in content.strip().splitlines()])
+        print(json.dumps({"resource_outputs": env_map}))
+
+- uri: cmd://python
   type: external-environment
   args:
     - "-c"

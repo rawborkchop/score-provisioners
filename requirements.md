@@ -50,27 +50,6 @@
 - **Linux/macOS**: Usuario en grupo docker
   - `sudo usermod -aG docker $USER`
 
-## Verificación de Requisitos
-
-### Script de verificación PowerShell:
-```powershell
-# Verificar PowerShell
-$PSVersionTable.PSVersion
-
-# Verificar score-compose
-score-compose --version
-
-# Verificar Docker
-docker --version
-docker compose version
-
-# Verificar conectividad
-Test-NetConnection github.com -Port 443
-
-# Verificar módulo YAML
-Get-Module -ListAvailable powershell-yaml
-```
-
 ## Troubleshooting Común
 
 ### Error: "score-compose: command not found"
@@ -90,20 +69,6 @@ Get-Module -ListAvailable powershell-yaml
 ### Error: "Module powershell-yaml not found"
 - **Solución**: Instalación manual del módulo
 - **Comando**: `Install-Module -Name powershell-yaml -Force -Scope CurrentUser`
-
-## Actualizaciones
-
-### Para mantener el sistema actualizado:
-```powershell
-# Actualizar score-compose (si se instaló vía package manager)
-winget upgrade score-spec.score-compose  # Windows
-brew upgrade score-compose               # macOS/Linux
-
-# Actualizar módulos PowerShell
-Update-Module powershell-yaml
-
-# Actualizar Docker (seguir documentación oficial)
-```
 
 ## Notas de Compatibilidad
 

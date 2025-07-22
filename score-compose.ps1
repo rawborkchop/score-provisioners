@@ -52,3 +52,5 @@ if ($state.shared_state -and $state.shared_state.ContainsKey("commands") -and $s
         $i++
     }
 }
+
+Write-Host("Score compose end")

@@ -7,7 +7,7 @@
       propagation: rprivate
 
 - uri: template://custom-bind-mount
-  type: logs-dir
+  type: logs-dirtype
   outputs: |
     type: bind
     source: C:/logs
