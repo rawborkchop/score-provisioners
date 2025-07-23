@@ -22,9 +22,6 @@
     bind:
       propagation: rprivate
 
-# Custom provisioner for existing Docker volumes
-# This provisioner allows using existing Docker volumes by name instead of creating new ones
-
 - uri: template://existing-volume
   type: volume
   class: existing

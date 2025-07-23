@@ -3,7 +3,7 @@
   args:
     - "-c"
     - |
-        env_file = .mssql
+        env_file = mssql.env
         with open(env_file) as f:
             content = f.read().strip()
         env_map = dict([x.split("=",1) for x in content.strip().splitlines()])
