@@ -118,6 +118,81 @@ La herramienta externa está configurada para:
 | `framework-spec` | `framework` (string) - Tipo de framework<br>`apptype` (string) - Tipo de aplicación<br>`version` (string) - Versión del framework | `framework` - Tipo de framework<br>`apptype` - Tipo de aplicación<br>`version` - Versión del framework | Provisioner de metadatos para especificaciones de framework (pass-through) |
 | `smtp` | Configuración vía annotations:<br>`compose.score.dev/domain` - Dominio (default: `example.com`)<br>`compose.score.dev/publish-port` - Puerto SMTP (default: `25`)<br>`compose.score.dev/submission-port` - Puerto submission (default: `587`)<br>`compose.score.dev/username` - Usuario SMTP (default: `smtp_user`) | `host` - Hostname del servicio<br>`port` - Puerto SMTP principal<br>`submission_port` - Puerto de submission<br>`username` - Usuario de autenticación<br>`password` - Contraseña generada<br>`domain` - Dominio configurado | Provisioner completo para servidor SMTP de desarrollo usando MailPit con interfaz web en puerto 8025 |
 
+## 🔧 Herramientas para .NET Framework
+
+### EnvConfigLoader.cs
+
+**Propósito**: Clase C# especializada para aplicaciones .NET Framework que permite cargar y sobreescribir configuraciones del `ConfigurationManager` usando variables de entorno o archivos `.env`.
+
+**Funcionalidades**:
+- ✅ **Carga desde archivos .env**: Lee variables desde archivos de configuración
+- ✅ **Carga desde entorno del sistema**: Utiliza variables de entorno de Windows
+- ✅ **Filtrado por prefijo**: Solo procesa variables que coincidan con un prefijo específico (ej: `MIAPP_`)
+- ✅ **Sobreescritura de ConnectionStrings**: Modifica connection strings en tiempo de ejecución
+- ✅ **Configuración de AppSettings**: Actualiza configuraciones de aplicación
+- ✅ **Configuración de secciones**: Maneja secciones personalizadas del web.config/app.config
+
+**Métodos principales**:
+
+```csharp
+// Cargar desde archivo .env con filtro de prefijo
+EnvConfigLoader.LoadEnvFile(".env", "MIAPP_");
+
+// Cargar desde variables de entorno del sistema
+EnvConfigLoader.LoadFromEnvironment("MIAPP_");
+```
+
+**Patrones de nomenclatura soportados**:
+- `PREFIJO_ConnectionStrings__NombreConexion` → ConnectionStrings
+- `PREFIJO_SeccionName__ConfigKey` → Configuración de sección específica  
+- `PREFIJO_ConfigKey` → AppSettings directos
+
+**Ejemplo de uso**:
+
+```csharp
+// En Program.cs o Application_Start
+using EnvConfigLoader;
+
+public class Program
+{
+    static void Main(string[] args)
+    {
+        // Cargar configuraciones desde variables de entorno con prefijo "MIAPP_"
+        EnvConfigLoader.LoadFromEnvironment("MIAPP_");
+        
+        // Ahora ConfigurationManager tiene las configuraciones actualizadas
+        string connectionString = ConfigurationManager.ConnectionStrings["Default"].ConnectionString;
+        string apiKey = ConfigurationManager.AppSettings["ApiKey"];
+        
+        // Resto de la aplicación...
+    }
+}
+```
+
+**Ejemplo de variables de entorno**:
+```bash
+# Variables de entorno del sistema
+MIAPP_ConnectionStrings__Default=Server=localhost;Database=MiDB;Trusted_Connection=true
+MIAPP_ApiKey=abc123456789
+MIAPP_Logging__Level=Debug
+MIAPP_ExternalService__BaseUrl=https://api.ejemplo.com
+```
+
+**Resultado en ConfigurationManager**:
+- `ConfigurationManager.ConnectionStrings["Default"]` → `Server=localhost;Database=MiDB;Trusted_Connection=true`
+- `ConfigurationManager.AppSettings["ApiKey"]` → `abc123456789`
+- Sección "Logging" con key "Level" → `Debug`
+- Sección "ExternalService" con key "BaseUrl" → `https://api.ejemplo.com`
+
+**Integración con Score Provisioners**:
+Esta clase se integra perfectamente con el flujo de trabajo de Score Provisioners:
+
+1. **Score genera** las variables en `compose.yaml`
+2. **local_env_variables.ps1** las extrae y las persiste en el sistema Windows
+3. **EnvConfigLoader.cs** las carga en la aplicación .NET Framework
+
+**Ubicación**: Incluye la clase `EnvConfigLoader.cs` en tu proyecto .NET Framework desde el directorio `utils/` de este repositorio.
+
 ## Uso
 
 ### ⚡ Opción 1: Herramienta de Visual Studio (Recomendado)
@@ -228,13 +303,43 @@ spec:
         packageVersion: "1.0.0"
         downloadPath: "./packages"
     
-    # Ejemplo de framework specification
+    # Ejemplo de framework specification (general)
     framework-config:
       type: framework-spec
       params:
         framework: ".NET"
         apptype: "web"
         version: "8.0"
+    
+    # Ejemplo para .NET Framework 4.7.2 con EnvConfigLoader
+    # Este configuración activa automáticamente la extracción de variables
+    net-framework-472:
+      type: framework
+      params:
+        framework: "net"
+        apptype: "web"
+        version: "472"
+```
+
+**Para aplicaciones .NET Framework 4.7.2**:
+
+Cuando uses `framework: "net"` y `version: "472"`, el sistema automáticamente:
+1. ✅ **Extrae variables** de los contenedores generados con `local_env_variables.ps1`
+2. ✅ **Las persiste** en el sistema Windows con formato `NOMBRESERVICIO_VARIABLE`
+3. ✅ **Están disponibles** para `EnvConfigLoader.cs` en tu aplicación
+
+**Código en tu aplicación .NET Framework**:
+```csharp
+// En Application_Start (Web) o Main (Console/WinForms)
+protected void Application_Start()
+{
+    // Cargar variables persistidas por Score Provisioners
+    // Usar el nombre de tu servicio como prefijo
+    EnvConfigLoader.LoadFromEnvironment("MI-APP-WEB_");
+    
+    // Ya puedes usar las configuraciones
+    string connectionString = ConfigurationManager.ConnectionStrings["Default"].ConnectionString;
+}
 ```
 
 ### Comandos Post-Generación
