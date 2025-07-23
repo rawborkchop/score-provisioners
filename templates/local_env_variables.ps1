@@ -61,10 +61,7 @@ function Ensure-EnvVar {
             Write-Host "Eliminando variable existente: $Name"
             Remove-EnvVar -Name $Name -Scope $Scope
         }
-        Write-Host "Estableciendo $Name=$Value (Scope: $Scope)"
         Set-EnvVar -Name $Name -Value $Value -Scope $Scope
-        
-        # También establecer en la sesión actual para acceso inmediato
         if ($Scope -ne "Session") {
             ${env:$Name} = $Value
         }
@@ -110,30 +107,4 @@ if ($compose.services.ContainsKey($ServiceName)) {
     }
 } else {
     Write-Error "No se encontró el servicio '$ServiceName' en el archivo compose."
-}
-
-# Función para verificar las variables establecidas
-function Test-EnvironmentVariables {
-    param([string]$ServiceName)
-    
-    Write-Host "`n=== Verificación de Variables de Entorno ===" -ForegroundColor Yellow
-    
-    # Obtener todas las variables que empiecen con el nombre del servicio
-    $allEnvVars = [Environment]::GetEnvironmentVariables("User")
-    $serviceVars = $allEnvVars.GetEnumerator() | Where-Object { $_.Key -like "$ServiceName*" }
-    
-    if ($serviceVars) {
-        Write-Host "Variables encontradas para '$ServiceName':" -ForegroundColor Green
-        foreach ($var in $serviceVars) {
-            Write-Host "  $($var.Key) = $($var.Value)" -ForegroundColor Cyan
-        }
-    } else {
-        Write-Host "No se encontraron variables para '$ServiceName'" -ForegroundColor Red
-    }
-    
-    # Verificar en sesión actual también
-    Write-Host "`nEn sesión actual de PowerShell:" -ForegroundColor Yellow
-    Get-ChildItem env: | Where-Object { $_.Name -like "$ServiceName*" } | ForEach-Object {
-        Write-Host "  $($_.Name) = $($_.Value)" -ForegroundColor Cyan
-    }
 }

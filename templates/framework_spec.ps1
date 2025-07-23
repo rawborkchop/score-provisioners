@@ -1,7 +1,7 @@
 . .score-compose/helper_functions.ps1
 
 $inputJson = [Console]::In.ReadToEnd()
-$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
+#$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
 
 $data = $inputJson | ConvertFrom-Json -AsHashtable -Depth 10
 $params = $data.resource_params
@@ -49,5 +49,4 @@ $output = @{
 $outputJson = $output | ConvertTo-Json -Depth 10
 [Console]::Out.Write($outputJson)
 
-# cmd /c 'echo {"resource_params":{"framework":"net","apptype":"runtime","version":"8.0"}} | powershell -File .score-compose\framework_spec.ps1'
 # powershell -Command "Get-Content input_data.json | pwsh -File .score-compose\framework_spec.ps1"
