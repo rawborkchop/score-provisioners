@@ -54,8 +54,8 @@ function Get-ScoreComposeGenerateCommand {
         [Parameter(Mandatory=$true)]
         [string]$dirPath
     )
-
     $scorePath = Join-Path -Path $dirPath -ChildPath "score.yaml"
+    $overrides = Get-ChildItem -Path $dirPath -Filter "*score*.yaml" -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "score.yaml" }
     $scoreContent = Get-ScoreContent -dirPath $dirPath
     $containers = @{}
     $containerIndex = 0
@@ -69,5 +69,11 @@ function Get-ScoreComposeGenerateCommand {
     {
         $command += " --build `"$container={'context':'$dirPath', 'dockerfile':'Dockerfile'}`""
     }
+    foreach ($override in $overrides) 
+    {
+        $command += " --overrides-file `"$($override.FullName)`""
+    }
     return $command
 }
+
+#. templates/helper_functions.ps1; Get-ScoreComposeGenerateCommand -dirPath "../lsports/src/Ksoft.IntegrationServices.LSports.Racing.Host"
