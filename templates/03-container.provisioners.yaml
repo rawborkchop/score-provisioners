@@ -1,0 +1,161 @@
+- uri: template://smtp
+  type: smtp
+  init: |
+    serviceName: smtp
+    randomPassword: {{ randAlphaNum 16 | quote }}
+    domain: {{ dig "annotations" "compose.score.dev/domain" "example.com" .Metadata | quote }}
+    publishPort: {{ dig "annotations" "compose.score.dev/publish-port" "25" .Metadata | quote }}
+    submissionPort: {{ dig "annotations" "compose.score.dev/submission-port" "587" .Metadata | quote }}
+    smtpUser: {{ dig "annotations" "compose.score.dev/username" "smtp_user" .Metadata | quote }}
+  state: |
+    host: {{ dig "serviceName" .Init.serviceName .State | quote }}
+    port: {{ dig "publishPort" .Init.publishPort .State | quote }}
+    submissionPort: {{ dig "submissionPort" .Init.submissionPort .State | quote }}
+    username: {{ dig "smtpUser" .Init.smtpUser .State | quote }}
+    password: {{ dig "randomPassword" .Init.randomPassword .State | quote }}
+  outputs: |
+    host: {{ .State.host }}
+    port: {{ .State.port }}
+    submissionPort: {{ .State.submissionPort }}
+    username: {{ .State.username | quote }}
+    password: {{ .State.password | quote }}
+  volumes: |
+    smtpdata:
+      driver: local
+    smtpconfig:
+      driver: local
+  services: |
+    {{ .State.host }}:
+      image: axllent/mailpit:latest
+      container_name: {{ .State.host }}
+      ports:
+      - target: 1025
+        published: {{ .State.port }}
+      - target: 8025
+        published: 8025
+      volumes:
+      - type: volume
+        source: smtpdata
+        target: /data
+      - type: volume
+        source: smtpconfig
+        target: /config
+      restart: unless-stopped
+      environment:
+        MP_SMTP_AUTH_ACCEPT_ANY: "1"
+        MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+  info_logs: |
+    - "{{.Uid}}: Para conectar al SMTP:\n\
+        Host: {{ .State.host }}\n\
+        Puerto: {{ .State.port }} (SMTP), {{ .State.submissionPort }} (Submission)\n\
+        Usuario: {{ .State.username }}@{{ .Init.domain }}\n\
+        Contraseña: {{ .State.password }}\n\
+        Ejemplo de conexión:\n\
+        \topenssl s_client -starttls smtp -crlf -connect {{ .State.host }}:{{ .State.submissionPort }} \
+        -quiet"
+
+- uri: template://pyroscope
+  type: pyroscope
+  init: |
+    serviceName: pyroscope
+    domain: {{ dig "annotations" "compose.score.dev/domain" "example.com" .Metadata | quote }}
+    publishPort: {{ dig "annotations" "compose.score.dev/publish-port" "4040" .Metadata | quote }}
+    dataRetention: {{ dig "annotations" "compose.score.dev/data-retention" "15d" .Metadata | quote }}
+  state: |
+    host: {{ dig "serviceName" .Init.serviceName .State | quote }}
+    port: {{ dig "publishPort" .Init.publishPort .State | quote }}
+    dataRetention: {{ dig "dataRetention" .Init.dataRetention .State | quote }}
+    webUrl: http://{{ dig "serviceName" .Init.serviceName .State }}:{{ dig "publishPort" .Init.publishPort .State }}
+  outputs: |
+    host: {{ .State.host }}
+    port: {{ .State.port }}
+    webUrl: {{ .State.webUrl }}
+    dataRetention: {{ .State.dataRetention }}
+  volumes: |
+    pyroscopedata:
+      driver: local
+  services: |
+    {{ .State.host }}:
+      image: pyroscope/pyroscope:latest
+      container_name: {{ .State.host }}
+      ports:
+      - target: 4040
+        published: {{ .State.port }}
+      volumes:
+      - type: volume
+        source: pyroscopedata
+        target: /var/lib/pyroscope
+      restart: unless-stopped
+      environment:
+        PYROSCOPE_LOG_LEVEL: info
+        PYROSCOPE_STORAGE_PATH: /var/lib/pyroscope
+        PYROSCOPE_API_BIND_ADDR: 0.0.0.0:4040
+        PYROSCOPE_DATA_RETENTION: {{ .State.dataRetention }}
+      command:
+      - "server"
+  info_logs: |
+    - "{{.Uid}}: Pyroscope configurado exitosamente:\n\
+        URL de la interfaz web: {{ .State.webUrl }}\n\
+        Host: {{ .State.host }}\n\
+        Puerto: {{ .State.port }}\n\
+        Retención de datos: {{ .State.dataRetention }}\n\
+        \n\
+        Para enviar perfiles desde tu aplicación:\n\
+        \tEndpoint: http://{{ .State.host }}:{{ .State.port }}\n\
+        \n\
+        Ejemplo de configuración para aplicaciones:\n\
+        \tPython: pyroscope.configure(application_name='mi-app', server_address='{{ .State.webUrl }}')\n\
+        \tGo: pyroscope.Start(pyroscope.Config{ApplicationName: 'mi-app', ServerAddress: '{{ .State.webUrl }}'})\n\
+        \tJava: -javaagent:pyroscope.jar=server={{ .State.webUrl }},applicationName=mi-app"
+
+- uri: template://zincsearch
+  type: elasticsearch
+  description: Provisions a ZincSearch instance (Elasticsearch-compatible ingest) manteniendo outputs análogos.
+  init: |
+    serviceName: zincsearch
+    randomPassword: {{ randAlphaNum 16 | quote }}
+    username: {{ dig "annotations" "compose.score.dev/username" "admin" .Metadata | quote }}
+    sk: default-provisioners-elasticsearch-instance
+    publishPort: {{ dig "annotations" "compose.score.dev/publish-port" "9200" .Metadata | quote }}
+  state: |
+    username: {{ dig "username" .Init.username .State | quote }}
+    password: {{ dig "password" .Init.randomPassword .State | quote }}
+    host: {{ dig "host" .Init.serviceName .State | quote }}
+  outputs: |
+    host: {{ .State.host }}
+    port: {{ .Init.publishPort }}
+    username: {{ .State.username | quote }}
+    password: {{ .State.password | quote }}
+  volumes: |
+    zincdata:
+      driver: local
+  services: |
+    {{ .State.host }}:
+      image: public.ecr.aws/zinclabs/zincsearch:latest
+      container_name: {{ .State.host }}
+      ports:
+      - target: 4080
+        published: {{ .Init.publishPort }}
+      volumes:
+      - type: volume
+        source: zincdata
+        target: /data
+      restart: unless-stopped
+      environment:
+        ZINC_FIRST_ADMIN_USER: {{ .State.username }}
+        ZINC_FIRST_ADMIN_PASSWORD: {{ .State.password }}
+        ZINC_DATA_PATH: /data
+  info_logs: |
+    - "{{.Uid}}: Para conectar a ZincSearch (sustituto de Elasticsearch):\n
+        Host: {{ .State.host }}\n
+        Puerto: {{ .Init.publishPort }}\n
+        Usuario: {{ .State.username }}\n
+        Contraseña: {{ .State.password }}\n
+        Ejemplo (ingesta vía API compatible):\n
+        \tcurl -u {{ .State.username }}:{{ .State.password }} http://localhost:{{ .Init.publishPort }}/api/\n
+        UI web: http://{{ .State.host }}:{{ .Init.publishPort }}"
+  expected_outputs:
+    - host
+    - port
+    - username
+    - password

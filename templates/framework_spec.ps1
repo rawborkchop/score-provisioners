@@ -31,9 +31,9 @@ services:
 "@
         $override_file | Out-File $filePath -Encoding utf8
         $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workload_name + "-" + $container)"
-        $shared.commands += "docker compose -f compose.yaml -f $filePath config > merged.yaml"
+        $shared.commands += "docker compose -f docker-compose.yaml -f $filePath config > merged.yaml"
         $shared.commands += "Remove-Item $filePath -Force"
-        $shared.commands += "Move-Item merged.yaml compose.yaml -Force"
+        $shared.commands += "Move-Item merged.yaml docker-compose.yaml -Force"
     }
 }
 

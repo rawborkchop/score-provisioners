@@ -2,17 +2,53 @@ param(
     [switch]$debug = $false
 )
 
+function Clear-SharedState {
+    $statePath = ".score-compose/state.yaml"
+    if (Test-Path $statePath) {
+        $yamlContent = Get-Content $statePath -Raw
+        $stateObj = ConvertFrom-Yaml -Yaml $yamlContent
+        if ($stateObj.shared_state -and $stateObj.shared_state.commands) {
+            $stateObj.shared_state.commands = @()
+            $stateObj.workloads= $null
+            $newYaml = ConvertTo-Yaml $stateObj
+            Set-Content -Path $statePath -Value $newYaml
+        }
+    }
+}
+
+Clear-SharedState
+score-compose init
+$dest = Join-Path -Path (Get-Location).Path -ChildPath '.score-compose'
+
 if ($debug) 
 {
-    Write-Host "DEBUG MODE: templates won't be updated from source..."
-    Remove-Item -Path ".score-compose/state.yaml" -Recurse -Force
-    score-compose init
-    
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+    Write-Host "DEBUG MODE: templates will be updated from local source at $scriptDir..."
+
+    $templates = @(
+        "certificate.ps1",
+        "kirol_app.ps1",
+        "framework_spec.ps1",
+        "local_env_variables.ps1",
+        "helper_functions.ps1",
+        "docker_file_generation.ps1",
+        "01-script.provisioners.yaml",
+        "02-custom.volumes.provisioners.yaml",
+        "03-container.provisioners.yaml"
+    )
+
+    foreach ($template in $templates) {
+        $src = Join-Path -Path $scriptDir -ChildPath "templates\$template"
+        $dst = Join-Path -Path $dest -ChildPath $template
+        if (Test-Path $src) {
+            Copy-Item -Path $src -Destination $dst -Force
+        } else {
+            Write-Host "ADVERTENCIA: No se encontró el template $template en $src"
+        }
+    }
 }
-else 
+else
 {
-    Remove-Item -Path ".score-compose" -Recurse -Force
-    score-compose init
     $urls = @(
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/certificate.ps1",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/kirol_app.ps1",
@@ -22,10 +58,8 @@ else
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/docker_file_generation.ps1",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/01-script.provisioners.yaml",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/02-custom.volumes.provisioners.yaml",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/04-container.provisioners.yaml"
+        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/03-container.provisioners.yaml"
     )
-    $dest = Join-Path -Path (Get-Location).Path -ChildPath '.score-compose'
-    if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
 
     foreach ($url in $urls) {
         $name = Split-Path $url -Leaf
@@ -40,6 +74,7 @@ if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
 }
 
 . .score-compose/helper_functions.ps1
+
 $command = Get-ScoreComposeGenerateCommand -dirPath "./"
 Invoke-Expression $command
 

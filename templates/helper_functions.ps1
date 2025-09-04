@@ -64,7 +64,7 @@ function Get-ScoreComposeGenerateCommand {
         $containers["$containerIndex"] = $key
         $containerIndex++
     }
-    $command = "score-compose generate $scorePath"
+    $command = "score-compose generate $scorePath --output docker-compose.yaml"
     foreach ($container in $containers.Values) 
     {
         $command += " --build `"$container={'context':'$dirPath', 'dockerfile':'Dockerfile'}`""
