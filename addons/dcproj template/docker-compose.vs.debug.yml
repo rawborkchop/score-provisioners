@@ -1,0 +1,8 @@
+name: ksoftintegrationserviceslsportsracinghost
+services:
+  ksoft-integration-services-lsports-racing-client-webservice:
+    entrypoint: ["/entrypoint.sh"]
+    volumes:
+        - type: bind
+          source: <ABSOLUTE_PATH_TO_ENTRYPOINT_SH>\entrypoint.sh
+          target: /entrypoint.sh

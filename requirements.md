@@ -41,8 +41,6 @@
 - **Instalación automática**: El script `score-compose.ps1` lo instala automáticamente
 - **Instalación manual**: `Install-Module -Name powershell-yaml -Force -Scope CurrentUser`
 
-- **587**: SMTP submission (configurable)
-
 
 ### Permisos requeridos
 - **Windows**: Ejecución de scripts PowerShell habilitada
@@ -76,3 +74,33 @@
 - **Docker Toolbox**: No recomendado, usar Docker Desktop
 - **WSL1**: Funcional pero se recomienda WSL2 para mejor rendimiento
 - **ARM64**: Soportado en PowerShell 7+ y Docker Desktop
+
+## Requisitos opcionales (recomendados)
+
+### Visual Studio (para integración con herramienta externa)
+- Ediciones: Community/Professional/Enterprise 2022+
+- Importar `utils/Score_Compose_Tool.vssettings` para añadir “Score Compose” al menú Tools.
+
+### Pyroscope (profiling .NET)
+- Acceso a un servidor Pyroscope (local o remoto).
+- Conectividad de red desde los contenedores al servidor Pyroscope.
+- Variables de entorno: `PYROSCOPE_SERVER_ADDRESS` debe apuntar a la URL del servidor.
+
+## Comprobaciones rápidas
+
+```powershell
+# PowerShell
+$PSVersionTable.PSVersion
+
+# score-compose
+score-compose --version
+
+# Docker
+docker --version
+
+# Docker Compose
+docker compose version
+
+# Módulo YAML
+Get-Module -ListAvailable powershell-yaml | Select Name,Version
+```

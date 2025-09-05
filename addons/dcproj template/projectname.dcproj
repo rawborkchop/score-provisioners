@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" Sdk="Microsoft.Docker.Sdk">
+  <PropertyGroup Label="Globals">
+    <ProjectVersion>2.1</ProjectVersion>
+    <DockerTargetOS>Linux</DockerTargetOS>
+    <DockerPublishLocally>True</DockerPublishLocally>
+    <ProjectGuid>d76c5aef-e617-4509-a54d-99151761565b</ProjectGuid>
+    <DockerComposeBaseFilePath><PATH_TO_GENERATED_DOCKER_COMPOSE>\docker-compose</DockerComposeBaseFilePath>
+    <DependencyAwareStart>true</DependencyAwareStart>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <AdditionalComposeFilePaths>docker-compose.vs.debug.yaml</AdditionalComposeFilePaths>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="<PATH_TO_GENERATED_DOCKER_COMPOSE>\docker-compose" />
+    <None Include=".dockerignore" />
+    <None Include="docker-compose.vs.debug.yml" />
+    <None Include="entrypoint.sh" />
+  </ItemGroup>
+</Project>
