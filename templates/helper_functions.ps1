@@ -26,6 +26,11 @@ function Initialize-SharedState {
     {
         $shared.Add("commands", @())
     }
+
+    if (-not $shared.ContainsKey("childrenPaths")) 
+    {
+        $shared.Add("childrenPaths", @{})
+    }
     
     return $shared
 }
