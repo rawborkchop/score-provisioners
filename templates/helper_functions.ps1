@@ -59,6 +59,7 @@ function Get-ScoreComposeGenerateCommand {
         [Parameter(Mandatory=$true)]
         [string]$dirPath
     )
+
     $scorePath = Join-Path -Path $dirPath -ChildPath "score.yaml"
     $overrides = Get-ChildItem -Path $dirPath -Filter "*score*.yaml" -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "score.yaml" }
     $scoreContent = Get-ScoreContent -dirPath $dirPath

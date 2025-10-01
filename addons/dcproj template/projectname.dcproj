@@ -4,15 +4,15 @@
     <ProjectVersion>2.1</ProjectVersion>
     <DockerTargetOS>Linux</DockerTargetOS>
     <DockerPublishLocally>True</DockerPublishLocally>
-    <ProjectGuid><PROJECT_GUID>\</ProjectGuid>
-    <DockerComposeBaseFilePath><PATH_TO_GENERATED_DOCKER_COMPOSE>\docker-compose</DockerComposeBaseFilePath>
+    <ProjectGuid><PROJECT_GUID></ProjectGuid>
+    <DockerComposeBaseFilePath><PATH_TO_GENERATED_DOCKER_COMPOSE></DockerComposeBaseFilePath>
     <DependencyAwareStart>true</DependencyAwareStart>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
     <AdditionalComposeFilePaths>docker-compose.vs.debug.yaml</AdditionalComposeFilePaths>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="<PATH_TO_GENERATED_DOCKER_COMPOSE>\docker-compose" />
+    <None Include="<PATH_TO_GENERATED_DOCKER_COMPOSE>.yaml" />
     <None Include=".dockerignore" />
     <None Include="docker-compose.vs.debug.yml" />
     <None Include="entrypoint.sh" />

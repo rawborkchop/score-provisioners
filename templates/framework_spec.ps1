@@ -48,7 +48,6 @@ function Ensure-DockerComposeProject
     $projectRelDir = Join-Path -Path "docker" -ChildPath $dcprojName
     $targetDir = Join-Path -Path $solutionRoot -ChildPath $projectRelDir
     $baseUrl = "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/addons/dcproj%20template"
-    $composeBasePath = Join-Path -Path $refProjPath -ChildPath "docker-compose"
 
     $projGuid = ([guid]::NewGuid()).ToString()
     if (Test-Path $targetDir) {
@@ -68,13 +67,14 @@ function Ensure-DockerComposeProject
     Invoke-WebRequest -Uri "$baseUrl/.dockerignore" -UseBasicParsing -OutFile "$targetDir\.dockerignore"
 
     $c = Get-Content -Path "$targetDir\$projectFileName" -Raw
-    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $composeBasePath)
+    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $refProjPath.Replace('\', '/'))
     $c = $c.Replace('docker-compose.vs.debug.yaml', 'docker-compose.vs.debug.yml')
     $c = [regex]::Replace($c, '<ProjectGuid>\s*<PROJECT_GUID>\\?\s*</ProjectGuid>', "<ProjectGuid>$projGuid</ProjectGuid>")
     Set-Content -Path "$targetDir\$projectFileName" -Value $c -Encoding UTF8
 
     $c = Get-Content -Path "$targetDir\launchSettings.json" -Raw
-    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE_YAML>', $composeBasePath)
+    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $refProjPath.Replace('\', '/'))
+    $c = $c.Replace('<SERVICE_NAME>', $workloadName)
     Set-Content -Path "$targetDir\launchSettings.json" -Value $c -Encoding UTF8
 
     $c = Get-Content -Path "$targetDir\docker-compose.vs.debug.yml" -Raw
@@ -82,7 +82,7 @@ function Ensure-DockerComposeProject
     Set-Content -Path "$targetDir\docker-compose.vs.debug.yml" -Value $c -Encoding UTF8
 
     if ($isNewProject -eq $false) {
-        Exit 0
+        return
     }
 
     $slnFile = Get-ChildItem -Path $solutionRoot -Filter "*.sln" -File -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -135,7 +135,7 @@ function Ensure-DockerComposeProject
 
 $inputJson = [Console]::In.ReadToEnd()
 
-#$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
+$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
 
 $data = $inputJson | ConvertFrom-Json -AsHashtable -Depth 10
 $params = $data.resource_params
@@ -143,7 +143,6 @@ $params = $data.resource_params
 $framework = if ($params.framework) { $params.framework }
 $apptype = if ($params.apptype) { $params.apptype }
 $version = if ($params.version) { $params.version }
-$scoreContent = Get-ScoreContent -dirPath $data.shared_state.childrenPaths[$scoreContent.metadata.name]
 
 $netFrameworkAvailableVersions = @("45", "451", "452", "46", "461", "462", "47", "471", "472", "48", "481")
 
@@ -154,15 +153,27 @@ if ($framework -eq "net" -and $netFrameworkAvailableVersions -contains $version)
 elseif ($framework -eq "net")
 {
     $solutionRoot = Find-ProjectRoot -startPath $PWD.Path
-    $refProjPath = Join-Path -Path $solutionRoot -ChildPath $scoreContent.metadata.path
-    $isChildProject = $refProjPath -ne $PWD.Path
+    $workloadName = $data.source_workload
+    $shared = Initialize-SharedState -data $data
+    $parentPath = $PWD.Path
+    $sourceWorkloadRelativePath = $data.shared_state.childrenPaths[$workloadName] ?? $parentPath
+    $sourceWorkloadPath = Join-Path -Path $solutionRoot -ChildPath $sourceWorkloadRelativePath
+    $isChildProject = $sourceWorkloadRelativePath -ne $parentPath
 
     if ($solutionRoot) 
     {
         if ($isChildProject) {
-            
+            $scoreContent = Get-ScoreContent -dirPath $parentPath
+            $parentName = $scoreContent.metadata.name
+            $parentDcProjectPath = Join-Path -Path $solutionRoot -ChildPath "docker" -ChildPath $parentName
+            $c = Get-Content -Path "$parentDcProjectPath\launchSettings.json" -Raw
+            $launchSettingsContent = $c | ConvertFrom-Json -AsHashtable -Depth 10
+            $launchSettingsContent.profiles.Docker_Compose.serviceActions[$workloadName] = "StartDebugging"
+            Set-Content -Path "$parentDcProjectPath\launchSettings.json" -Value $launchSettingsContent -Encoding UTF8
+
+        }else{
+            Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath
         }
-        Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $scoreContent.metadata.name -refProjPath $refProjPath
     }
 }
 
