@@ -1,0 +1,71 @@
+{
+    "resource_uid": "framework.default#ksoft-integration-services-lsports-racing-server.framework",
+    "resource_type": "framework",
+    "resource_class": "default",
+    "resource_id": "ksoft-integration-services-lsports-racing-server.framework",
+    "resource_params": {
+        "apptype": "runtime",
+        "framework": "net",
+        "version": "472"
+    },
+    "resource_metadata": null,
+    "source_workload": "ksoft-integration-services-lsports-racing-server",
+    "workload_services": {
+        "ksoft-integration-services-lsports-racing-client": {
+            "ServiceName": "ksoft-integration-services-lsports-racing-client",
+            "ports": {
+                "1345": {
+                    "name": "webservice",
+                    "port": 1345,
+                    "target_port": 1345,
+                    "protocol": "TCP"
+                },
+                "webservice": {
+                    "name": "webservice",
+                    "port": 1345,
+                    "target_port": 1345,
+                    "protocol": "TCP"
+                }
+            }
+        },
+        "ksoft-integration-services-lsports-racing-server": {
+            "ServiceName": "ksoft-integration-services-lsports-racing-server",
+            "ports": {
+                "5005": {
+                    "name": "webservice",
+                    "port": 5005,
+                    "target_port": 5005,
+                    "protocol": "TCP"
+                },
+                "webservice": {
+                    "name": "webservice",
+                    "port": 5005,
+                    "target_port": 5005,
+                    "protocol": "TCP"
+                }
+            }
+        }
+    },
+    "resource_state": {},
+    "shared_state": {
+        "commands": [
+            "score-compose generate D:\\GIT\\lsports\\src\\KSoft.IntegrationServices.LSports.UCBets.gRPC.Server\\score.yaml --output docker-compose.yaml --build \"webservice={'context':'D:\\GIT\\lsports\\src\\KSoft.IntegrationServices.LSports.UCBets.gRPC.Server', 'dockerfile':'Dockerfile'}\""
+        ],
+        "default-provisioners-routing-instance": {
+            "hosts": {
+                "dns0fjdf6.localhost": {
+                    "route.default#ksoft-integration-services-lsports-racing-client.route1": {
+                        "path": "/",
+                        "path_type": "Prefix",
+                        "port": 1345,
+                        "target": "ksoft-integration-services-lsports-racing-client:1345"
+                    }
+                }
+            },
+            "instancePort": 8080,
+            "instanceServiceName": "routing-CtZ0N7"
+        }
+    },
+    "compose_project_name": "ksoftintegrationserviceslsportsracinghost",
+    "mount_directory_path": ".score-compose\\mounts"
+}

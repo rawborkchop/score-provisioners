@@ -17,6 +17,11 @@ function Clear-SharedState {
 }
 
 Clear-SharedState
+if (-not (Test-Path "./score.yaml")) {
+    Write-Host "Score file not found in current directory"
+    Exit 1
+}
+
 score-compose init
 $dest = Join-Path -Path (Get-Location).Path -ChildPath '.score-compose'
 
@@ -74,7 +79,6 @@ if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
 }
 
 . .score-compose/helper_functions.ps1
-
 $command = Get-ScoreComposeGenerateCommand -dirPath "./"
 Invoke-Expression $command
 

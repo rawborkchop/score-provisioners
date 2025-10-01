@@ -3,9 +3,9 @@
         "Docker Compose": {
             "commandName": "DockerCompose",
             "commandVersion": "1.0",
-            "dockerComposeFile": "<PATH_TO_GENERATED_DOCKER_COMPOSE_YAML>/docker-compose.yaml",
+            "dockerComposeFile": "<PATH_TO_GENERATED_DOCKER_COMPOSE>.yaml",
             "serviceActions": {
-                "ksoft-integration-services-lsports-racing-client-webservice": "StartDebugging"
+                "<SERVICE_NAME>": "StartDebugging"
             }
         }
     }
