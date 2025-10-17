@@ -48,6 +48,7 @@ function Ensure-DockerComposeProject
     $projectRelDir = Join-Path -Path "docker" -ChildPath $dcprojName
     $targetDir = Join-Path -Path $solutionRoot -ChildPath $projectRelDir
     $baseUrl = "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/addons/dcproj%20template"
+    $dockerComposePath = Join-Path -Path $refProjPath -ChildPath "docker-compose"
 
     $projGuid = ([guid]::NewGuid()).ToString()
     if (Test-Path $targetDir) {
@@ -67,13 +68,13 @@ function Ensure-DockerComposeProject
     Invoke-WebRequest -Uri "$baseUrl/.dockerignore" -UseBasicParsing -OutFile "$targetDir\.dockerignore"
 
     $c = Get-Content -Path "$targetDir\$projectFileName" -Raw
-    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $refProjPath.Replace('\', '/'))
+    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $dockerComposePath.Replace('\', '/'))
     $c = $c.Replace('docker-compose.vs.debug.yaml', 'docker-compose.vs.debug.yml')
     $c = [regex]::Replace($c, '<ProjectGuid>\s*<PROJECT_GUID>\\?\s*</ProjectGuid>', "<ProjectGuid>$projGuid</ProjectGuid>")
     Set-Content -Path "$targetDir\$projectFileName" -Value $c -Encoding UTF8
 
     $c = Get-Content -Path "$targetDir\launchSettings.json" -Raw
-    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $refProjPath.Replace('\', '/'))
+    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $dockerComposePath.Replace('\', '/'))
     $c = $c.Replace('<SERVICE_NAME>', $workloadName)
     Set-Content -Path "$targetDir\launchSettings.json" -Value $c -Encoding UTF8
 
@@ -135,7 +136,7 @@ function Ensure-DockerComposeProject
 
 $inputJson = [Console]::In.ReadToEnd()
 
-$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
+#$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
 
 $data = $inputJson | ConvertFrom-Json -AsHashtable -Depth 10
 $params = $data.resource_params
@@ -156,9 +157,8 @@ elseif ($framework -eq "net")
     $workloadName = $data.source_workload
     $shared = Initialize-SharedState -data $data
     $parentPath = $PWD.Path
-    $sourceWorkloadRelativePath = $data.shared_state.childrenPaths[$workloadName] ?? $parentPath
-    $sourceWorkloadPath = Join-Path -Path $solutionRoot -ChildPath $sourceWorkloadRelativePath
-    $isChildProject = $sourceWorkloadRelativePath -ne $parentPath
+    $sourceWorkloadPath = $data.shared_state.childrenPaths[$workloadName] ?? $parentPath
+    $isChildProject = $sourceWorkloadPath -ne $parentPath
 
     if ($solutionRoot) 
     {

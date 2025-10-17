@@ -1,41 +1,5 @@
 . .score-compose/helper_functions.ps1
 
-function Get-NugetPackage {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$packageId,
-        
-        [Parameter(Mandatory=$true)]
-        [string]$packageVersion,
-
-        [Parameter(Mandatory=$true)]
-        [string]$downloadPath
-    )
-
-    $projectRoot = Find-ProjectRoot -startPath $PWD.Path
-    $nugetConfigPath = Join-Path -Path $projectRoot -ChildPath "nuget.config"
-
-    if (-not $nugetConfigPath) {
-        return $false
-    }
-
-    if (-not (Test-Path $downloadPath)) {
-        New-Item -ItemType Directory -Path $downloadPath | Out-Null
-    }
-
-    & nuget install $packageId `
-        -Version $packageVersion `
-        -ConfigFile $nugetConfigPath `
-        -OutputDirectory $downloadPath `
-        -NonInteractive
-
-    if ($LASTEXITCODE -eq 0) {
-        return $true
-    } else {
-        return $false
-    }
-}
-
 $inputJson = [Console]::In.ReadToEnd()
 #$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
 
@@ -48,17 +12,17 @@ $projectPath = if ($params.path) { $params.path }
 $name = if ($params.name) { $params.name }
 $version = if ($params.version) { $params.version }
 
-if($projectPath)
+if($projectPath -and -not $name -and -not $version)
 {
     $dirPath = Join-Path -Path $projectRoot -ChildPath $projectPath
 }
-elseif($name -and $version)
+elseif($name -and $version -and $projectPath)
 {
     $downloadPath = Join-Path -Path $projectRoot -ChildPath "packages"
     Get-NugetPackage -packageId $name -packageVersion $version -downloadPath $downloadPath
     $dirPath = $downloadPath
 }
-else 
+else
 {
     Exit 1
 }
