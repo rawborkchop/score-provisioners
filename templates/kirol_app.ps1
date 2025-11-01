@@ -1,4 +1,5 @@
 . .score-compose/helper_functions.ps1
+. .score-compose/external_app.ps1
 
 $inputJson = [Console]::In.ReadToEnd()
 #$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
@@ -6,11 +7,13 @@ $inputJson = [Console]::In.ReadToEnd()
 $data = $inputJson | ConvertFrom-Json -AsHashtable -Depth 10
 $params = $data.resource_params
 
+$script:ErrorActionPreference = "Stop"
+
 $projectRoot = Find-ProjectRoot -startPath $PWD.Path
 
-$projectPath = if ($params.path) { $params.path }
-$name = if ($params.name) { $params.name }
-$version = if ($params.version) { $params.version }
+$projectPath = if ($params.path) { [string]$params.path } else { $null }
+$name = if ($params.name) { [string]$params.name } else { $null }
+$version = if ($params.version) { [string]$params.version } else { $null }
 
 if($projectPath -and -not $name -and -not $version)
 {
@@ -19,8 +22,7 @@ if($projectPath -and -not $name -and -not $version)
 elseif($name -and $version -and $projectPath)
 {
     $downloadPath = Join-Path -Path $projectRoot -ChildPath "packages"
-    Get-NugetPackage -packageId $name -packageVersion $version -downloadPath $downloadPath
-    $dirPath = $downloadPath
+    $dirPath = Get-KirolAppPackagePath -Params $params -DownloadRoot $downloadPath -AppName $name -AppVersion $version -ProjectPath $projectPath
 }
 else
 {

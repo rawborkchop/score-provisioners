@@ -10,13 +10,17 @@ param(
     [Parameter()]
     [string]$Token = $env:GITLAB_TOKEN,
 
-    [ValidateRange(1, 100)]
-    [int]$PerPage = 20,
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
 
-    [ValidateRange(1, [int]::MaxValue)]
-    [int]$Page = 1,
+    [Parameter()]
+    [string]$JobName = "build",
 
-    [switch]$AllPages
+    [Parameter()]
+    [string]$ArtifactName = "artifacts.zip",
+
+    [Parameter()]
+    [string]$OutputPath
 )
 
 if ([string]::IsNullOrWhiteSpace($Token)) {
@@ -182,199 +186,137 @@ function Get-GitLabIdentityMessage {
     }
 }
 
-
-function Get-GitLabProjectArtifacts {
-    [CmdletBinding()]
+function Get-ProjectId {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Project,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ApiBaseUrl,
+        [string]$BaseUrl,
 
         [Parameter(Mandatory = $true)]
         [string]$Token,
 
-        [ValidateRange(1, 100)]
-        [int]$PerPage = 20,
-
-        [ValidateRange(1, [int]::MaxValue)]
-        [int]$Page = 1,
-
-        [switch]$AllPages
+        [Parameter(Mandatory = $true)]
+        [string]$Project
     )
 
-    $encodedProject = [System.Net.WebUtility]::UrlEncode($Project)
-    $results = [System.Collections.Generic.List[object]]::new()
-    $pageNumber = $Page
+    $route = "projects/{0}" -f ([System.Web.HttpUtility]::UrlEncode($Project))
+    $projectInfo = Invoke-GitLabRestApi -BaseUrl $BaseUrl -Token $Token -Route $route
+    if (-not $projectInfo) {
+        throw "No se encontró el proyecto '$Project'."
+    }
 
-    do {
-        $headersContainer = $null
-        $jobs = Invoke-GitLabRestApi `
-            -BaseUrl $ApiBaseUrl `
-            -Token $Token `
-            -Route "projects/$encodedProject/jobs" `
-            -Query @{ per_page = $PerPage; page = $pageNumber; include_retried = "true" } `
-            -ResponseHeaders ([ref]$headersContainer)
+    return $projectInfo.id
+}
+function Get-JobArtifactUrl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BaseUrl,
 
-        if ($jobs -isnot [System.Array]) {
-            if ($null -eq $jobs) {
-                $jobList = @()
-            } else {
-                $jobList = @($jobs)
-            }
-        } else {
-            $jobList = $jobs
-        }
+        [Parameter(Mandatory = $true)]
+        [string]$Token,
 
-        if ($jobList.Count -eq 1 -and ($jobList[0].PSObject.Properties.Name -contains "message") -and -not ($jobList[0].PSObject.Properties.Name -contains "id")) {
-            throw "GitLab API error: $($jobList[0].message)"
-        }
+        [Parameter(Mandatory = $true)]
+        [int]$ProjectId,
 
-        if ($jobList.Count -eq 0) {
-            Write-Verbose "No more jobs returned."
-            break
-        }
+        [Parameter(Mandatory = $true)]
+        [int]$PipelineId,
 
-        foreach ($job in $jobList) {
-            if ($null -eq $job) {
-                continue
-            }
+        [Parameter(Mandatory = $true)]
+        [string]$JobName,
 
-            $artifactCandidates = @()
+        [Parameter(Mandatory = $true)]
+        [string]$ArtifactName
+    )
 
-            if ($job.PSObject.Properties.Name -contains "artifacts" -and $null -ne $job.artifacts) {
-                $artifactCandidates = @($job.artifacts | Where-Object { $_ -ne $null })
-            }
+    $route = "projects/$ProjectId/pipelines/$PipelineId/jobs"
+    $jobs = Invoke-GitLabRestApi -BaseUrl $BaseUrl -Token $Token -Route $route -Query @{ "per_page" = 100 }
+    if (-not $jobs) {
+        throw "No se encontraron jobs en el pipeline '$PipelineId'."
+    }
 
-            if ($artifactCandidates.Count -eq 0 -and $job.PSObject.Properties.Name -contains "artifacts_file" -and $job.artifacts_file) {
-                $artifactCandidates = @($job.artifacts_file)
-            }
+    $job = $jobs | Where-Object { $_.name -eq $JobName }
+    if (-not $job) {
+        throw "No se encontró el job '$JobName' en el pipeline '$PipelineId'."
+    }
 
-            if ($artifactCandidates.Count -eq 0) {
-                continue
-            }
+    $route = "projects/$ProjectId/jobs/$($job.id)/artifacts/$ArtifactName"
+    return "$BaseUrl/$route"
+}
 
-            $pipelineId = $null
-            if ($job.PSObject.Properties.Name -contains "pipeline" -and $job.pipeline) {
-                $pipelineId = $job.pipeline.id
-            }
+function Get-ArtifactDownloadUrl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BaseUrl,
 
-            $downloadRoute = "projects/$encodedProject/jobs/$($job.id)/artifacts"
-            $httpDownloadUrl = Build-GitLabApiUri -BaseUrl $ApiBaseUrl -Route $downloadRoute
+        [Parameter(Mandatory = $true)]
+        [string]$Project,
 
-            foreach ($artifact in $artifactCandidates) {
-                if ($null -eq $artifact) {
-                    continue
-                }
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
 
-                $filename = $null
-                $filesize = $null
-                $filetype = $null
-                $fileformat = $null
-                $expiresAt = $null
+        [Parameter(Mandatory = $true)]
+        [string]$JobName
+    )
 
-                foreach ($property in @("filename", "file_name")) {
-                    if ($artifact.PSObject.Properties.Name -contains $property) {
-                        $filename = $artifact.$property
-                        break
-                    }
-                }
+    $encodedProject = [System.Web.HttpUtility]::UrlEncode($Project)
+    $route = "projects/$encodedProject/jobs/artifacts/$Version/download"
+    return Build-GitLabApiUri -BaseUrl $BaseUrl -Route $route -Query @{ job = $JobName }
+}
 
-                foreach ($property in @("size", "filesize")) {
-                    if ($artifact.PSObject.Properties.Name -contains $property) {
-                        $filesize = $artifact.$property
-                        break
-                    }
-                }
+function Download-Artifact {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArtifactUrl,
 
-                foreach ($property in @("file_type", "type")) {
-                    if ($artifact.PSObject.Properties.Name -contains $property) {
-                        $filetype = $artifact.$property
-                        break
-                    }
-                }
+        [Parameter(Mandatory = $true)]
+        [string]$Token,
 
-                if ($artifact.PSObject.Properties.Name -contains "file_format") {
-                    $fileformat = $artifact.file_format
-                }
+        [Parameter(Mandatory = $true)]
+        [string]$Destination
+    )
 
-                if ($artifact.PSObject.Properties.Name -contains "expire_at") {
-                    $expiresAt = $artifact.expire_at
-                }
-
-                if ($filesize -is [double] -or $filesize -is [float]) {
-                    $filesize = [long][Math]::Round($filesize)
-                }
-
-                $commitSha = $null
-                if ($job.PSObject.Properties.Name -contains "commit" -and $job.commit) {
-                    if ($job.commit.PSObject.Properties.Name -contains "sha") {
-                        $commitSha = $job.commit.sha
-                    } elseif ($job.commit.PSObject.Properties.Name -contains "id") {
-                        $commitSha = $job.commit.id
-                    }
-                }
-
-                $curlCommand = "curl --header `"PRIVATE-TOKEN: <token>`" `"$httpDownloadUrl`" --output artifact.zip"
-
-                $results.Add([pscustomobject]@{
-                    JobId           = $job.id
-                    JobName         = $job.name
-                    Stage           = $job.stage
-                    Status          = $job.status
-                    PipelineId      = $pipelineId
-                    Ref             = $job.ref
-                    CommitSha       = $commitSha
-                    FileName        = $filename
-                    FileType        = $filetype
-                    FileFormat      = $fileformat
-                    FileSizeBytes   = $filesize
-                    ExpiresAt       = $expiresAt
-                    DownloadUrl     = $httpDownloadUrl
-                    CurlCommandHint = $curlCommand
-                    CreatedAt       = $job.created_at
-                    FinishedAt      = $job.finished_at
-                })
-            }
-        }
-
-        if (-not $AllPages) {
-            break
-        }
-
-        $nextPageValue = $null
-        if ($headersContainer -and $headersContainer.ContainsKey("X-Next-Page")) {
-            $nextPageValue = $headersContainer["X-Next-Page"]
-        }
-
-        if ([string]::IsNullOrWhiteSpace($nextPageValue)) {
-            break
-        }
-
-        $pageNumber = [int]$nextPageValue
-        if ($pageNumber -le 0) {
-            break
-        }
-    } while ($true)
-
-    return $results.ToArray()
+    $headers = @{ "PRIVATE-TOKEN" = $Token }
+    Invoke-WebRequest -Uri $ArtifactUrl -Headers $headers -OutFile $Destination
 }
 
 $apiBaseUrl = Get-GitLabApiBaseUrl -GitLabHost $GitLabHost
+$artifactUrl = Get-ArtifactDownloadUrl -BaseUrl $apiBaseUrl -Project $Project -Version $Version -JobName $JobName
 
-$identityMessage = Get-GitLabIdentityMessage -ApiBaseUrl $apiBaseUrl -Token $Token
-if ($identityMessage) {
-    Write-Host $identityMessage
+if ($OutputPath) {
+    $destination = $null
+    if (Test-Path -LiteralPath $OutputPath) {
+        $item = Get-Item -LiteralPath $OutputPath
+        if ($item.PSIsContainer) {
+            $destination = Join-Path -Path $item.FullName -ChildPath $ArtifactName
+        } else {
+            $destination = $item.FullName
+        }
+    } else {
+        $parentDir = Split-Path -Parent $OutputPath
+        if (-not [string]::IsNullOrWhiteSpace($parentDir) -and -not (Test-Path $parentDir)) {
+            New-Item -ItemType Directory -Path $parentDir | Out-Null
+        }
+        if ([string]::IsNullOrWhiteSpace([System.IO.Path]::GetFileName($OutputPath))) {
+            $destination = Join-Path -Path $OutputPath -ChildPath $ArtifactName
+        } else {
+            $destination = $OutputPath
+        }
+    }
+
+    Download-Artifact -ArtifactUrl $artifactUrl -Token $Token -Destination $destination
+    Write-Output (@{
+        project = $Project
+        version = $Version
+        jobName = $JobName
+        artifactUrl = $artifactUrl
+        destination = $destination
+    } | ConvertTo-Json -Depth 5)
+} else {
+    Write-Output (@{
+        project = $Project
+        version = $Version
+        jobName = $JobName
+        artifactUrl = $artifactUrl
+    } | ConvertTo-Json -Depth 5)
 }
 
-$artifacts = Get-GitLabProjectArtifacts -Project $Project -ApiBaseUrl $apiBaseUrl -Token $Token -PerPage $PerPage -Page $Page -AllPages:$AllPages
-
-if (-not $artifacts -or $artifacts.Count -eq 0) {
-    Write-Verbose "No artifacts available for project '$Project'."
-    return
-}
-
-$artifacts
-
-# pwsh ./sandbox.ps1 -Project "kirol-igb/servidor/lsports" -AllPages -Verbose
+# pwsh ./sandbox.ps1 -Project "kirol-igb/servidor/lsports" -Version "pre1.11.0-beta.0.3" -OutputPath "C:\users\b.leon\desktop"
