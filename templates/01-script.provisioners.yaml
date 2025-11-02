@@ -17,8 +17,14 @@
     - |
         import json, sys
         data = json.load(sys.stdin)
-        params = data.get("resource_params")
-        env_file = params.get("env_file", ".env")
+        resource_id = data.get("resource_id") or ""
+        provisioner_name = "external-environment"
+        if resource_id:
+            parts = resource_id.split(".", 1)
+            candidate = parts[1] if len(parts) > 1 and parts[1] else parts[0]
+            if candidate:
+                provisioner_name = candidate
+        env_file = f"{provisioner_name}.env"
         with open(env_file) as f:
             content = f.read().strip()
         env_map = dict([x.split("=",1) for x in content.strip().splitlines()])

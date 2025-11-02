@@ -21,7 +21,33 @@ function ManageNetFramework
         $filePath = ".score-compose/idle-$workload_name.yaml"
         $override_file = @"
 services:
-    $($workload_name + "-" + $container): !reset null
+    $($workload_name + "-" + $container):
+        build: null
+        image: alpine:3.19
+        container_name: null
+        hostname: null
+        working_dir: null
+        user: null
+        command:
+            - /bin/sh
+            - -c
+            - sleep infinity
+        entrypoint: []
+        environment: {}
+        env_file: []
+        volumes: []
+        ports: []
+        expose: []
+        depends_on: []
+        networks: []
+        restart: 'no'
+        healthcheck:
+            disable: true
+        logging: null
+        extra_hosts: []
+        secrets: []
+        configs: []
+        develop: null
 "@
         $override_file | Out-File $filePath -Encoding utf8
         $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workload_name + "-" + $container)"
@@ -33,6 +59,69 @@ services:
     return $shared
 }
 
+function Set-NetCoreDockerfile
+{
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$targetDirectory
+    )
+
+    if (-not $targetDirectory) {
+        return
+    }
+
+    if (-not (Test-Path -Path $targetDirectory)) {
+        return
+    }
+
+    $dockerfilePath = Join-Path -Path $targetDirectory -ChildPath "Dockerfile"
+    $dockerfileContent = @"
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+RUN apt-get update && \
+    apt-get install -y \
+        ca-certificates \
+        libssl-dev \
+        iputils-ping \
+        curl \
+    && update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+"@
+    Set-Content -Path $dockerfilePath -Value $dockerfileContent -Encoding UTF8
+}
+
+function Set-NormalizedLineEndings
+{
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+        [ValidateSet("LF", "CRLF")]
+        [string]$LineEnding = "CRLF"
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    $normalized = $content -replace "`r`n", "`n"
+    $normalized = $normalized -replace "`r", "`n"
+
+    if ($LineEnding -eq "CRLF") {
+        $normalized = $normalized -replace "`n", "`r`n"
+        if ($normalized.Length -gt 0 -and -not $normalized.EndsWith("`r`n")) {
+            $normalized += "`r`n"
+        }
+    }
+    else {
+        if ($normalized.Length -gt 0 -and -not $normalized.EndsWith("`n")) {
+            $normalized += "`n"
+        }
+    }
+
+    [System.IO.File]::WriteAllText($Path, $normalized, [System.Text.Encoding]::UTF8)
+}
+
 function Ensure-DockerComposeProject
 {
     param(
@@ -41,7 +130,9 @@ function Ensure-DockerComposeProject
         [Parameter(Mandatory=$true)]
         [string]$dcprojName,
         [Parameter(Mandatory=$true)]
-        [string]$refProjPath
+        [string]$refProjPath,
+        [string]$composeProjectName,
+        [string]$serviceName
     )
 
     $projectFileName = "$dcprojName.dcproj"
@@ -49,6 +140,14 @@ function Ensure-DockerComposeProject
     $targetDir = Join-Path -Path $solutionRoot -ChildPath $projectRelDir
     $baseUrl = "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/addons/dcproj%20template"
     $dockerComposePath = Join-Path -Path $refProjPath -ChildPath "docker-compose"
+
+    if (-not $serviceName) {
+        $serviceName = $dcprojName
+    }
+
+    if (-not $composeProjectName) {
+        $composeProjectName = $dcprojName
+    }
 
     $projGuid = ([guid]::NewGuid()).ToString()
     if (Test-Path $targetDir) {
@@ -67,20 +166,28 @@ function Ensure-DockerComposeProject
     Invoke-WebRequest -Uri "$baseUrl/entrypoint.sh" -UseBasicParsing -OutFile "$targetDir\entrypoint.sh"
     Invoke-WebRequest -Uri "$baseUrl/.dockerignore" -UseBasicParsing -OutFile "$targetDir\.dockerignore"
 
+    Set-NormalizedLineEndings -Path "$targetDir\.dockerignore" -LineEnding "CRLF"
+    Set-NormalizedLineEndings -Path "$targetDir\entrypoint.sh" -LineEnding "LF"
+
     $c = Get-Content -Path "$targetDir\$projectFileName" -Raw
-    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $dockerComposePath.Replace('\', '/'))
+    $c = $c.Replace('__PATH_TO_GENERATED_DOCKER_COMPOSE__', $dockerComposePath.Replace('\', '/'))
     $c = $c.Replace('docker-compose.vs.debug.yaml', 'docker-compose.vs.debug.yml')
-    $c = [regex]::Replace($c, '<ProjectGuid>\s*<PROJECT_GUID>\\?\s*</ProjectGuid>', "<ProjectGuid>$projGuid</ProjectGuid>")
+    $c = [regex]::Replace($c, '<ProjectGuid>\s*__PROJECT_GUID__\?\s*</ProjectGuid>', "<ProjectGuid>$projGuid</ProjectGuid>")
     Set-Content -Path "$targetDir\$projectFileName" -Value $c -Encoding UTF8
+    Set-NormalizedLineEndings -Path "$targetDir\$projectFileName" -LineEnding "CRLF"
 
     $c = Get-Content -Path "$targetDir\launchSettings.json" -Raw
-    $c = $c.Replace('<PATH_TO_GENERATED_DOCKER_COMPOSE>', $dockerComposePath.Replace('\', '/'))
-    $c = $c.Replace('<SERVICE_NAME>', $workloadName)
+    $c = $c.Replace('__PATH_TO_GENERATED_DOCKER_COMPOSE__', $dockerComposePath.Replace('\', '/'))
+    $c = $c.Replace('__SERVICE_NAME__', $serviceName)
     Set-Content -Path "$targetDir\launchSettings.json" -Value $c -Encoding UTF8
+    Set-NormalizedLineEndings -Path "$targetDir\launchSettings.json" -LineEnding "CRLF"
 
     $c = Get-Content -Path "$targetDir\docker-compose.vs.debug.yml" -Raw
-    $c = $c.Replace('<ABSOLUTE_PATH_TO_ENTRYPOINT_SH>', $targetDir)
+    $c = $c.Replace('__ABSOLUTE_PATH_TO_ENTRYPOINT_SH__', $targetDir)
+    $c = $c.Replace('__COMPOSE_PROJECT_NAME__', $composeProjectName)
+    $c = $c.Replace('__SERVICE_NAME__', $serviceName)
     Set-Content -Path "$targetDir\docker-compose.vs.debug.yml" -Value $c -Encoding UTF8
+    Set-NormalizedLineEndings -Path "$targetDir\docker-compose.vs.debug.yml" -LineEnding "CRLF"
 
     if ($isNewProject -eq $false) {
         return
@@ -142,10 +249,17 @@ $data = $inputJson | ConvertFrom-Json -AsHashtable -Depth 10
 $params = $data.resource_params
 
 $framework = if ($params.framework) { $params.framework }
-$apptype = if ($params.apptype) { $params.apptype }
 $version = if ($params.version) { $params.version }
+$composeProjectName = if ($data.compose_project_name) { $data.compose_project_name }
 
 $netFrameworkAvailableVersions = @("45", "451", "452", "46", "461", "462", "47", "471", "472", "48", "481")
+
+$solutionRoot = Find-ProjectRoot -startPath $PWD.Path
+$workloadName = $data.source_workload
+$shared = Initialize-SharedState -data $data
+$parentPath = $PWD.Path
+$sourceWorkloadPath = $data.shared_state.childrenPaths[$workloadName] ?? $parentPath
+$isChildProject = $sourceWorkloadPath -ne $parentPath
 
 if ($framework -eq "net" -and $netFrameworkAvailableVersions -contains $version)
 {
@@ -153,27 +267,22 @@ if ($framework -eq "net" -and $netFrameworkAvailableVersions -contains $version)
 }
 elseif ($framework -eq "net")
 {
-    $solutionRoot = Find-ProjectRoot -startPath $PWD.Path
-    $workloadName = $data.source_workload
-    $shared = Initialize-SharedState -data $data
-    $parentPath = $PWD.Path
-    $sourceWorkloadPath = $data.shared_state.childrenPaths[$workloadName] ?? $parentPath
-    $isChildProject = $sourceWorkloadPath -ne $parentPath
+    Set-NetCoreDockerfile -targetDirectory $sourceWorkloadPath 
+}
 
-    if ($solutionRoot) 
-    {
-        if ($isChildProject) {
-            $scoreContent = Get-ScoreContent -dirPath $parentPath
-            $parentName = $scoreContent.metadata.name
-            $parentDcProjectPath = Join-Path -Path $solutionRoot -ChildPath "docker" -ChildPath $parentName
-            $c = Get-Content -Path "$parentDcProjectPath\launchSettings.json" -Raw
-            $launchSettingsContent = $c | ConvertFrom-Json -AsHashtable -Depth 10
-            $launchSettingsContent.profiles.Docker_Compose.serviceActions[$workloadName] = "StartDebugging"
-            Set-Content -Path "$parentDcProjectPath\launchSettings.json" -Value $launchSettingsContent -Encoding UTF8
+if ($solutionRoot)
+{
+    if ($isChildProject) {
+        $scoreContent = Get-ScoreContent -dirPath $parentPath
+        $parentName = $scoreContent.metadata.name
+        $parentDcProjectPath = Join-Path -Path $solutionRoot -ChildPath "docker" -ChildPath $parentName
+        $c = Get-Content -Path "$parentDcProjectPath\launchSettings.json" -Raw
+        $launchSettingsContent = $c | ConvertFrom-Json -AsHashtable -Depth 10
+        $launchSettingsContent.profiles.Docker_Compose.serviceActions[$workloadName] = "StartDebugging"
+        Set-Content -Path "$parentDcProjectPath\launchSettings.json" -Value $launchSettingsContent -Encoding UTF8
 
-        }else{
-            Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath
-        }
+    }else{
+        Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath -composeProjectName $composeProjectName -serviceName $workloadName
     }
 }
 
