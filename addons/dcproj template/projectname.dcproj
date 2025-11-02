@@ -4,7 +4,7 @@
     <ProjectVersion>2.1</ProjectVersion>
     <DockerTargetOS>Linux</DockerTargetOS>
     <DockerPublishLocally>True</DockerPublishLocally>
-    <ProjectGuid>__PROJECT_GUID__</ProjectGuid>
+    <ProjectGuid></ProjectGuid>
     <DockerComposeBaseFilePath>__PATH_TO_GENERATED_DOCKER_COMPOSE__</DockerComposeBaseFilePath>
     <DependencyAwareStart>true</DependencyAwareStart>
   </PropertyGroup>

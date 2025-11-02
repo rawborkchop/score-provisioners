@@ -3,9 +3,9 @@
         "Docker Compose": {
             "commandName": "DockerCompose",
             "commandVersion": "1.0",
-            "dockerComposeFile": "<PATH_TO_GENERATED_DOCKER_COMPOSE>.yaml",
+            "dockerComposeFile": "__PATH_TO_GENERATED_DOCKER_COMPOSE__.yaml",
             "serviceActions": {
-                "<SERVICE_NAME>": "StartDebugging"
+                "__SERVICE_NAME__": "StartDebugging"
             }
         }
     }

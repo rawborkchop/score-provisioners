@@ -28,12 +28,11 @@ services:
         hostname: null
         working_dir: null
         user: null
-        command:
+        entrypoint:
             - /bin/sh
             - -c
             - sleep infinity
-        entrypoint: []
-        environment: {}
+        command: null
         env_file: []
         volumes: []
         ports: []
@@ -47,7 +46,6 @@ services:
         extra_hosts: []
         secrets: []
         configs: []
-        develop: null
 "@
         $override_file | Out-File $filePath -Encoding utf8
         $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workload_name + "-" + $container)"
