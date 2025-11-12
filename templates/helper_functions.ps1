@@ -82,4 +82,18 @@ function Get-ScoreComposeGenerateCommand {
     return $command
 }
 
+function Get-Containers {
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$data
+    )
+    $containers = @()
+    $workload_name = $data.source_workload
+    foreach ($key in $data.workload_services[$workload_name].ports.Keys) 
+    {
+        if ($key -notmatch '^\d+$') { $containers += $key }
+    }
+    return $containers
+}
+
 #. templates/helper_functions.ps1; Get-ScoreComposeGenerateCommand -dirPath "../lsports/src/Ksoft.IntegrationServices.LSports.Racing.Host"

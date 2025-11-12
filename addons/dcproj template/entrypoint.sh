@@ -12,4 +12,5 @@ if [ -d "/init-scripts" ]; then
   done
 fi
 
-dotnet --roll-forward Major /VSTools/DistrolessHelper/DistrolessHelper.dll --wait
+tail -f /dev/null
+#dotnet --roll-forward Major /VSTools/DistrolessHelper/DistrolessHelper.dll --wait

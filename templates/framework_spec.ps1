@@ -6,49 +6,26 @@ function ManageNetFramework
         [hashtable]$data
     )
 
-    $containers = @()
-    $workload_name = $data.source_workload
-    foreach ($key in $data.workload_services[$workload_name].ports.Keys) 
-    {
-        if ($key -notmatch '^\d+$') {
-            $containers += $key
-        }
-    }
+    $containers = Get-Containers -data $data
 
     $shared = Initialize-SharedState -data $data
+    $workloadName = $data.source_workload
+
+    if (-not $workloadName) {
+        return $shared
+    }
+
     foreach ($container in $containers) 
     {
-        $filePath = ".score-compose/idle-$workload_name.yaml"
+        $filePath = ".score-compose/idle-$workloadName.yaml"
         $override_file = @"
 services:
-    $($workload_name + "-" + $container):
-        build: null
-        image: alpine:3.19
-        container_name: null
-        hostname: null
-        working_dir: null
-        user: null
-        entrypoint:
-            - /bin/sh
-            - -c
-            - sleep infinity
-        command: null
-        env_file: []
-        volumes: []
-        ports: []
-        expose: []
-        depends_on: []
-        networks: []
-        restart: 'no'
-        healthcheck:
-            disable: true
-        logging: null
-        extra_hosts: []
-        secrets: []
-        configs: []
+    $($workloadName + "-" + $container):
+        build: !reset null
+        image: mcr.microsoft.com/dotnet/aspnet:8.0
 "@
         $override_file | Out-File $filePath -Encoding utf8
-        $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workload_name + "-" + $container)"
+        $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workloadName + "-" + $container)"
         $shared.commands += "docker compose -f docker-compose.yaml -f $filePath config > merged.yaml"
         $shared.commands += "Remove-Item $filePath -Force"
         $shared.commands += "Move-Item merged.yaml docker-compose.yaml -Force"
@@ -130,7 +107,8 @@ function Ensure-DockerComposeProject
         [Parameter(Mandatory=$true)]
         [string]$refProjPath,
         [string]$composeProjectName,
-        [string]$serviceName
+        [string]$serviceName,
+        [string[]]$serviceContainers
     )
 
     $projectFileName = "$dcprojName.dcproj"
@@ -143,6 +121,7 @@ function Ensure-DockerComposeProject
         $serviceName = $dcprojName
     }
 
+    $serviceName = $serviceName + "-" + $serviceContainers[0]
     if (-not $composeProjectName) {
         $composeProjectName = $dcprojName
     }
@@ -165,7 +144,6 @@ function Ensure-DockerComposeProject
     Invoke-WebRequest -Uri "$baseUrl/.dockerignore" -UseBasicParsing -OutFile "$targetDir\.dockerignore"
 
     Set-NormalizedLineEndings -Path "$targetDir\.dockerignore" -LineEnding "CRLF"
-    Set-NormalizedLineEndings -Path "$targetDir\entrypoint.sh" -LineEnding "LF"
 
     $c = Get-Content -Path "$targetDir\$projectFileName" -Raw
     $c = $c.Replace('__PATH_TO_GENERATED_DOCKER_COMPOSE__', $dockerComposePath.Replace('\', '/'))
@@ -258,6 +236,7 @@ $shared = Initialize-SharedState -data $data
 $parentPath = $PWD.Path
 $sourceWorkloadPath = $data.shared_state.childrenPaths[$workloadName] ?? $parentPath
 $isChildProject = $sourceWorkloadPath -ne $parentPath
+$containers = Get-Containers -data $data
 
 if ($framework -eq "net" -and $netFrameworkAvailableVersions -contains $version)
 {
@@ -271,23 +250,21 @@ elseif ($framework -eq "net")
 if ($solutionRoot)
 {
     if ($isChildProject) {
-        $scoreContent = Get-ScoreContent -dirPath $parentPath
-        $parentName = $scoreContent.metadata.name
-        $parentDcProjectPath = Join-Path -Path $solutionRoot -ChildPath "docker" -ChildPath $parentName
-        $c = Get-Content -Path "$parentDcProjectPath\launchSettings.json" -Raw
-        $launchSettingsContent = $c | ConvertFrom-Json -AsHashtable -Depth 10
-        $launchSettingsContent.profiles.Docker_Compose.serviceActions[$workloadName] = "StartDebugging"
-        Set-Content -Path "$parentDcProjectPath\launchSettings.json" -Value $launchSettingsContent -Encoding UTF8
+        # $parentName = (Get-ScoreContent -dirPath $parentPath).metadata.name
+        # $parentDcProjectPath = Join-Path -Path $solutionRoot -ChildPath "docker" -ChildPath $parentName
+        # $c = Get-Content -Path "$parentDcProjectPath\launchSettings.json" -Raw
+        # $launchSettingsContent = $c | ConvertFrom-Json -AsHashtable -Depth 10
+        # $launchSettingsContent.profiles.Docker_Compose.serviceActions[$workloadName] = "StartDebugging"
+        #Set-Content -Path "$parentDcProjectPath\launchSettings.json" -Value $launchSettingsContent -Encoding UTF8
 
     }else{
-        Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath -composeProjectName $composeProjectName -serviceName $workloadName
+        Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath -composeProjectName $composeProjectName -serviceName $workloadName -serviceContainers $containers
     }
 }
 
 $output = @{
     resource_outputs = @{
         framework = $framework
-        apptype = $apptype
         version = $version
     }
     shared_state = $shared
