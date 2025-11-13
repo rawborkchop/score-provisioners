@@ -22,7 +22,7 @@ function ManageNetFramework
 services:
     $($workloadName + "-" + $container):
         build: !reset null
-        image: mcr.microsoft.com/dotnet/aspnet:8.0
+        image: mcr.microsoft.com/dotnet/sdk:8.0
 "@
         $override_file | Out-File $filePath -Encoding utf8
         $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workloadName + "-" + $container)"
@@ -51,7 +51,7 @@ function Set-NetCoreDockerfile
 
     $dockerfilePath = Join-Path -Path $targetDirectory -ChildPath "Dockerfile"
     $dockerfileContent = @"
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS base
 WORKDIR /app
 RUN apt-get update && \
     apt-get install -y \
