@@ -62,7 +62,6 @@ else
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/local_env_variables.ps1",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/helper_functions.ps1",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/external_app.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/docker_file_generation.ps1",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/01-script.provisioners.yaml",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/02-custom.volumes.provisioners.yaml",
         "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/03-container.provisioners.yaml"
