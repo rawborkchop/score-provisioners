@@ -27,29 +27,48 @@ function Get-ServiceEnvironmentVariables {
     }
     if ($environment -is [System.Collections.IDictionary]) {
         foreach ($key in $environment.Keys) {
-            $result[$key] = [string]$environment[$key]
+            $value = [string]$environment[$key]
+            $result[$key] = Normalize-EnvironmentValue -Value $value
         }
         return $result
     }
     foreach ($entry in $environment) {
         if ($entry -match "^(.*?)=(.*)$") {
-            $result[$matches[1]] = $matches[2]
+            $result[$matches[1]] = Normalize-EnvironmentValue -Value $matches[2]
         }
     }
     return $result
 }
 
+function Normalize-EnvironmentValue {
+    param([string]$Value)
+    if ($null -eq $Value) {
+        return $Value
+    }
+    # Ensures backslashes are not over-escaped in the resulting JSON.
+    return $Value -replace '\\\\', '\'
+}
+
 function New-LaunchSettingsJson {
     param(
         [string]$ProfileName,
-        [hashtable]$EnvironmentVariables
+        [hashtable]$EnvironmentVariables,
+        [string]$DefaultProfileName = "Default"
     )
+    if ($DefaultProfileName -eq $ProfileName) {
+        throw "Default profile name must differ from environment profile name."
+    }
+    # Adds a fallback profile without environment variables.
+    $defaultProfileDefinition = [ordered]@{
+        commandName = "Project"
+    }
     $profileDefinition = [ordered]@{
         commandName = "Project"
         environmentVariables = $EnvironmentVariables
     }
     $content = [ordered]@{
         profiles = [ordered]@{
+            $DefaultProfileName = $defaultProfileDefinition
             $ProfileName = $profileDefinition
         }
     }
