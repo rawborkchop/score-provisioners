@@ -114,7 +114,7 @@ function Ensure-DockerComposeProject
     $projectFileName = "$dcprojName.dcproj"
     $projectRelDir = Join-Path -Path "docker" -ChildPath $dcprojName
     $targetDir = Join-Path -Path $solutionRoot -ChildPath $projectRelDir
-    $baseUrl = "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/addons/dcproj%20template"
+    $baseUrl = "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/dcproj%20template"
     $dockerComposePath = Join-Path -Path $refProjPath -ChildPath "docker-compose"
 
     if (-not $serviceName) {

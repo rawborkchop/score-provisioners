@@ -1,4 +1,4 @@
-#!/bin/sh
+﻿#!/bin/sh
 set -e
 
 if [ -d "/init-scripts" ]; then
@@ -12,5 +12,4 @@ if [ -d "/init-scripts" ]; then
   done
 fi
 
-tail -f /dev/null
-#dotnet --roll-forward Major /VSTools/DistrolessHelper/DistrolessHelper.dll --wait
+dotnet --roll-forward Major /VSTools/DistrolessHelper/DistrolessHelper.dll --wait
