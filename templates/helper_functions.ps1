@@ -96,4 +96,37 @@ function Get-Containers {
     return $containers
 }
 
+
+function Set-NormalizedLineEndings
+{
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+        [ValidateSet("LF", "CRLF")]
+        [string]$LineEnding = "CRLF"
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    $normalized = $content -replace "`r`n", "`n"
+    $normalized = $normalized -replace "`r", "`n"
+
+    if ($LineEnding -eq "CRLF") {
+        $normalized = $normalized -replace "`n", "`r`n"
+        if ($normalized.Length -gt 0 -and -not $normalized.EndsWith("`r`n")) {
+            $normalized += "`r`n"
+        }
+    }
+    else {
+        if ($normalized.Length -gt 0 -and -not $normalized.EndsWith("`n")) {
+            $normalized += "`n"
+        }
+    }
+
+    [System.IO.File]::WriteAllText($Path, $normalized, [System.Text.Encoding]::UTF8)
+}
+
 #. templates/helper_functions.ps1; Get-ScoreComposeGenerateCommand -dirPath "../lsports/src/Ksoft.IntegrationServices.LSports.Racing.Host"

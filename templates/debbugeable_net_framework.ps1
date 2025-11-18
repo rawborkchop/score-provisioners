@@ -49,30 +49,59 @@ function Normalize-EnvironmentValue {
     return $Value -replace '\\\\', '\'
 }
 
-function New-LaunchSettingsJson {
-    param(
-        [string]$ProfileName,
-        [hashtable]$EnvironmentVariables,
-        [string]$DefaultProfileName = "Default"
-    )
-    if ($DefaultProfileName -eq $ProfileName) {
-        throw "Default profile name must differ from environment profile name."
-    }
-    # Adds a fallback profile without environment variables.
-    $defaultProfileDefinition = [ordered]@{
-        commandName = "Project"
-    }
-    $profileDefinition = [ordered]@{
-        commandName = "Project"
-        environmentVariables = $EnvironmentVariables
-    }
-    $content = [ordered]@{
-        profiles = [ordered]@{
-            $DefaultProfileName = $defaultProfileDefinition
-            $ProfileName = $profileDefinition
+function Get-LaunchSettingsObject {
+    param([string]$Path)
+    $result = [ordered]@{}
+    if (Test-Path -LiteralPath $Path) {
+        $raw = Get-Content -Path $Path -Raw -Encoding UTF8
+        if (-not [string]::IsNullOrWhiteSpace($raw)) {
+            try {
+                $result = ConvertFrom-Json -InputObject $raw -AsHashtable -Depth 20
+            } catch {
+                $result = [ordered]@{}
+            }
         }
     }
-    return ConvertTo-Json -InputObject $content -Depth 5
+    if (-not $result) {
+        $result = [ordered]@{}
+    }
+    if (-not $result.ContainsKey("profiles") -or -not ($result["profiles"] -is [System.Collections.IDictionary])) {
+        $result["profiles"] = [ordered]@{}
+    }
+    return $result
+}
+
+function Set-EnvironmentProfile {
+    param(
+        [hashtable]$LaunchSettings,
+        [string]$ProfileName,
+        [hashtable]$EnvironmentVariables,
+        [string]$DefaultProfileName
+    )
+
+    $profiles = $LaunchSettings["profiles"]
+    if (-not $profiles.ContainsKey($ProfileName) -or -not ($profiles[$ProfileName] -is [System.Collections.IDictionary])) {
+        $profiles[$ProfileName] = [ordered]@{}
+    }
+
+    $profiles[$ProfileName]["commandName"] = "Project"
+    $profiles[$ProfileName]["environmentVariables"] = $EnvironmentVariables
+
+    if ([string]::IsNullOrWhiteSpace($DefaultProfileName)) {
+        return
+    }
+
+    if (-not $profiles.ContainsKey($DefaultProfileName) -or -not ($profiles[$DefaultProfileName] -is [System.Collections.IDictionary])) {
+        $profiles[$DefaultProfileName] = [ordered]@{}
+    }
+
+    if (-not $profiles[$DefaultProfileName].ContainsKey("commandName") -or [string]::IsNullOrWhiteSpace([string]$profiles[$DefaultProfileName]["commandName"])) {
+        $profiles[$DefaultProfileName]["commandName"] = "Project"
+    }
+
+    if ($profiles[$DefaultProfileName].ContainsKey("environmentVariables")) {
+        $profiles[$DefaultProfileName].Remove("environmentVariables")
+    }
 }
 
 function Set-LaunchSettingsDirectory {
@@ -110,10 +139,16 @@ if ($environmentVariables.Count -eq 0) {
     Write-Warning "El servicio '$ServiceName' no tiene variables de entorno definidas."
 }
 
-$jsonContent = New-LaunchSettingsJson -ProfileName $ProfileName -EnvironmentVariables $environmentVariables
+$launchSettings = Get-LaunchSettingsObject -Path $launchSettingsPath
+$defaultProfileName = "Default"
+if ($defaultProfileName -eq $ProfileName) {
+    $defaultProfileName = "$ProfileName-default"
+}
+Set-EnvironmentProfile -LaunchSettings $launchSettings -ProfileName $ProfileName -EnvironmentVariables $environmentVariables -DefaultProfileName $defaultProfileName
 
 Set-LaunchSettingsDirectory -Path $launchSettingsPath
 
+$jsonContent = ConvertTo-Json -InputObject $launchSettings -Depth 20
 Set-Content -Path $launchSettingsPath -Value $jsonContent -Encoding UTF8
 
 Write-Host "launchSettings.json generado en '$launchSettingsPath' con el perfil '$ProfileName'." -ForegroundColor Green

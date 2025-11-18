@@ -25,11 +25,16 @@ services:
         image: mcr.microsoft.com/dotnet/sdk:8.0
 "@
         $override_file | Out-File $filePath -Encoding utf8
-        $shared.commands += ".score-compose\local_env_variables.ps1 -ServiceName $($workloadName + "-" + $container)"
+        $shared.commands += ".score-compose\debbugeable_net_framework.ps1 -ServiceName $($workloadName + "-" + $container)"
         $shared.commands += "docker compose -f docker-compose.yaml -f $filePath config > merged.yaml"
         $shared.commands += "Remove-Item $filePath -Force"
         $shared.commands += "Move-Item merged.yaml docker-compose.yaml -Force"
     }
+
+    $composeFilePath = Join-Path -Path $refProjPath -ChildPath "docker-compose.yaml"
+    $waitScriptPath = New-WaitForComposeScript -TargetDirectory $targetDir
+    $waitCommand = Get-ComposeWaitCommand -WaitScriptPath $waitScriptPath -ComposeFilePath $composeFilePath -ProjectName $composeProjectName
+    Set-LaunchProfilePreLaunchCommand -ProjectDirectory $refProjPath -ProfileName $serviceName -Command $waitCommand
 
     return $shared
 }
@@ -65,39 +70,65 @@ RUN apt-get update && \
     Set-Content -Path $dockerfilePath -Value $dockerfileContent -Encoding UTF8
 }
 
-function Set-NormalizedLineEndings
+
+function Set-LaunchProfilePreLaunchCommand
 {
     param(
         [Parameter(Mandatory=$true)]
-        [string]$Path,
-        [ValidateSet("LF", "CRLF")]
-        [string]$LineEnding = "CRLF"
+        [string]$ProjectDirectory,
+        [Parameter(Mandatory=$true)]
+        [string]$ProfileName,
+        [Parameter(Mandatory=$true)]
+        [string]$Command
     )
 
-    if (-not (Test-Path -LiteralPath $Path)) {
+    if (-not $Command) { return }
+
+    $launchSettingsPath = Join-Path -Path $ProjectDirectory -ChildPath "Properties\launchSettings.json"
+    $propertiesDir = Split-Path -Path $launchSettingsPath -Parent
+    if (-not (Test-Path -LiteralPath $propertiesDir)) {
+        New-Item -ItemType Directory -Path $propertiesDir -Force | Out-Null
+    }
+
+    $launchSettings = [ordered]@{}
+    if (Test-Path -LiteralPath $launchSettingsPath) {
+        $content = Get-Content -Path $launchSettingsPath -Raw
+        if (-not [string]::IsNullOrWhiteSpace($content)) {
+            try {
+                $launchSettings = ConvertFrom-Json -InputObject $content -AsHashtable -Depth 20
+            } catch {
+                $launchSettings = [ordered]@{}
+            }
+        }
+    }
+
+    if (-not $launchSettings) {
+        $launchSettings = [ordered]@{}
+    }
+    if (-not $launchSettings.ContainsKey("profiles") -or -not ($launchSettings["profiles"] -is [System.Collections.IDictionary])) {
+        $launchSettings["profiles"] = [ordered]@{}
+    }
+
+    $profiles = $launchSettings["profiles"]
+    if (-not $profiles.ContainsKey($ProfileName) -or -not ($profiles[$ProfileName] -is [System.Collections.IDictionary])) {
+        $profiles[$ProfileName] = [ordered]@{}
+    }
+
+    if (-not $profiles[$ProfileName].ContainsKey("commandName") -or [string]::IsNullOrWhiteSpace([string]$profiles[$ProfileName]["commandName"])) {
+        $profiles[$ProfileName]["commandName"] = "Project"
+    }
+
+    if ($profiles[$ProfileName].ContainsKey("preLaunchCommand") -and $profiles[$ProfileName]["preLaunchCommand"] -eq $Command) {
         return
     }
 
-    $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
-    $normalized = $content -replace "`r`n", "`n"
-    $normalized = $normalized -replace "`r", "`n"
-
-    if ($LineEnding -eq "CRLF") {
-        $normalized = $normalized -replace "`n", "`r`n"
-        if ($normalized.Length -gt 0 -and -not $normalized.EndsWith("`r`n")) {
-            $normalized += "`r`n"
-        }
-    }
-    else {
-        if ($normalized.Length -gt 0 -and -not $normalized.EndsWith("`n")) {
-            $normalized += "`n"
-        }
-    }
-
-    [System.IO.File]::WriteAllText($Path, $normalized, [System.Text.Encoding]::UTF8)
+    $profiles[$ProfileName]["preLaunchCommand"] = $Command
+    $json = ConvertTo-Json -InputObject $launchSettings -Depth 20
+    Set-Content -Path $launchSettingsPath -Value $json -Encoding UTF8
+    Set-NormalizedLineEndings -Path $launchSettingsPath -LineEnding "CRLF"
 }
 
-function Ensure-DockerComposeProject
+function Set-DockerComposeProject
 {
     param(
         [Parameter(Mandatory=$true)]
@@ -258,7 +289,7 @@ if ($solutionRoot)
         #Set-Content -Path "$parentDcProjectPath\launchSettings.json" -Value $launchSettingsContent -Encoding UTF8
 
     }else{
-        Ensure-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath -composeProjectName $composeProjectName -serviceName $workloadName -serviceContainers $containers
+        Set-DockerComposeProject -solutionRoot $solutionRoot -dcprojName $workloadName -refProjPath $sourceWorkloadPath -composeProjectName $composeProjectName -serviceName $workloadName -serviceContainers $containers
     }
 }
 
@@ -274,3 +305,4 @@ $outputJson = $output | ConvertTo-Json -Depth 10
 [Console]::Out.Write($outputJson)
 
 # powershell -Command "Get-Content input_data.json | pwsh -File .score-compose\framework_spec.ps1"
+
