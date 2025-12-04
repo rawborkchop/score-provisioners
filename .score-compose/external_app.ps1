@@ -220,3 +220,38 @@ function Get-KirolAppPackagePath {
 
     return $candidate
 }
+
+function Invoke-ExternalArtifact {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Params,
+        [Parameter(Mandatory = $true)]
+        [string]$DownloadRoot,
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+        [Parameter(Mandatory = $true)]
+        [string]$AppVersion,
+        [string]$ProjectPath
+    )
+
+    $packagePath = Get-KirolAppPackagePath -Params $Params -DownloadRoot $DownloadRoot -AppName $AppName -AppVersion $AppVersion -ProjectPath $ProjectPath
+    $manifestPath = Join-Path -Path $packagePath -ChildPath "manifest.json"
+    $hashValue = $null
+    $expectedHash = Get-ParamValue -Params $Params -Keys @("artifact_hash", "artifactHash", "sha256")
+    if ($expectedHash) {
+        $hashSource = if (Test-Path -LiteralPath $manifestPath) { $manifestPath } else { Join-Path -Path $packagePath -ChildPath "score.yaml" }
+        if (-not (Test-Path -LiteralPath $hashSource)) {
+            throw "No fue posible validar el hash del artefacto. Proporciona un manifest.json o score.yaml."
+        }
+        $hashValue = (Get-FileHash -Path $hashSource -Algorithm SHA256).Hash
+        if (-not $hashValue.Equals([string]$expectedHash, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "El hash del artefacto no coincide con el esperado."
+        }
+    }
+
+    return @{
+        PackagePath = $packagePath
+        ManifestPath = if (Test-Path -LiteralPath $manifestPath) { $manifestPath } else { $null }
+        Hash = $hashValue
+    }
+}

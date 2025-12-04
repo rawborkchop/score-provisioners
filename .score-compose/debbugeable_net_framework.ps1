@@ -1,3 +1,6 @@
+# Invoked by NetFrameworkInternalProvisioner to map docker-compose environment
+# variables into launchSettings.json profiles before debugging in Visual Studio.
+
 param(
     [Parameter(Mandatory = $true)]
     [string]$ServiceName,
