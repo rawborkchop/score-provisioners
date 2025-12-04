@@ -12,6 +12,6 @@ class NetCoreInternalProvisioner : ProvisionerBase {
             $this.Context.Version,
             "netcore_internal.Dockerfile")
         $dockerfile.SetDockerfile()
-        $this.DockerProject.OverrideEntrypointEnd("dotnet run $($this.Context.WorkloadName).dll")
+        $this.DockerProject.UpdateComposeDebugFile("NetCoreInternal_compose_override.yaml")
     }
 }

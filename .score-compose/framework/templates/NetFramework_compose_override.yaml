@@ -1,7 +1,7 @@
     {{WORKLOAD_NAME}}-{{CONTAINER}}:
         entrypoint: ["/entrypoint.sh"]
         build: !reset null
-        image: mcr.microsoft.com/dotnet/sdk:{{DOTNET_VERSION}}
+        image: mcr.microsoft.com/dotnet/sdk:latest
         volumes:
         - type: bind
             source: {{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}\entrypoint_dotnet_internal.sh

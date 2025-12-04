@@ -1,11 +1,13 @@
 using module './Context.psm1'
 
 class DockerProject {
-    [string]$TemplatesPath
     [Context]$Context
+    [string]$TemplatesPath
+    [string]$FrameworkTemplatesPath
 
     DockerProject([Context]$context) {
         $this.TemplatesPath = Join-Path -Path $context.ParentPath -ChildPath ".score-compose/templates/dcproj template"
+        $this.FrameworkTemplatesPath = Join-Path -Path $context.ParentPath -ChildPath ".score-compose/framework/templates"
     }
 
     [void] EnsureDockerComposeProject() {
@@ -123,7 +125,6 @@ class DockerProject {
         $this.UpdateProjectFile($projectFile, $projectGuid)
         $this.UpdateDockerIgnore($targetDir)
         $this.UpdateLaunchSettingsFile($targetDir)
-        $this.UpdateComposeDebugFile($targetDir)
     }
 
     hidden [void] UpdateProjectFile([string]$projectFile, [string]$projectGuid) {
@@ -264,18 +265,30 @@ class DockerProject {
         )
     }
 
-    [void] UpdateComposeDebugFile([string]) {
-        $compseServiceTemplate = Join-Path -Path $this.TemplatesPath -ChildPath "compose-service-template.yml"
-        $composeDebugFile = Join-Path -Path $targetDir -ChildPath "docker-compose.vs.debug.yml"
+    [void] UpdateComposeDebugFileAndAddEntrypoint([string] $templateName, [string] $entrypointName) {
+        $composeServiceTemplate = Join-Path -Path $this.TemplatesPath -ChildPath $templateName
+        $composeDebugFile = Join-Path -Path $this.targetDir -ChildPath "docker-compose.vs.debug.yml"
 
         $composeContent = Get-Content -Path $composeDebugFile -Raw
+        
         if ([string]::IsNullOrWhiteSpace($composeContent)) {
-            return
+            throw "composeContent is null or empty"
         }
-        $composeContent = $composeContent.Replace('__ABSOLUTE_PATH_TO_ENTRYPOINT_SH__', $targetDir)
-        $composeContent = $composeContent.Replace('__COMPOSE_PROJECT_NAME__', $this.GetComposeProjectLabel())
-        $composeContent = $composeContent.Replace('__SERVICE_NAME__', $this.GetServiceLabel())
+
+        foreach ($service in $this.Containers) {
+            $composeServiceTemplateContent = Get-Content -Path $composeServiceTemplate -Raw
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{SERVICE_NAME}}', $this.context.WorkloadName)
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{CONTAINER}}', $service)
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}', $this.targetDir + "\" + $templateName)
+            $composeContent = $composeContent + $composeServiceTemplateContent
+        }
         Set-Content -Path $composeDebugFile -Value $composeContent -Encoding UTF8
-        Set-NormalizedLineEndings -Path $composeDebugFile -LineEnding "CRLF"
+        Set-NormalizedLineEndings -Path $composeDebugFile -LineEnding "CRLF"      
+        
+        $entrypointTemplate = Join-Path -Path $this.TemplatesPath -ChildPath $entrypointName
+        $entrypointTargetFile = Join-Path -Path $this.targetDir -ChildPath "entrypoint.sh"
+        $entrypointContent = Get-Content -Path $entrypointTemplate -Raw
+        Set-Content -Path $entrypointTargetFile -Value $entrypointContent -Encoding UTF8   
+        Set-NormalizedLineEndings -Path $entrypointTargetFile -LineEnding "CRLF"
     }
 }
