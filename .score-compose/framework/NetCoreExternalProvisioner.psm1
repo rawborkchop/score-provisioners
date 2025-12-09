@@ -12,6 +12,6 @@ class NetCoreExternalProvisioner : ProvisionerBase {
             $this.Context.Version, 
             "netcore_external.Dockerfile")
         $dockerfile.SetDockerfile()
-        
+        $this.DockerProject.UpdateComposeDebugFile("NetCoreExternal_compose_override.yaml")
     }
 }

@@ -1,17 +1,27 @@
 
 Set-StrictMode -Version Latest
 
-class LaunchSettings {
-    [hashtable]$EnvironmentVariables
-    [string]$LineEnding
+. "$PSScriptRoot\DockerComposeEnvironment.ps1"
 
-    LaunchSettings([hashtable]$environmentVariables) {
-        $this.EnvironmentVariables = if ($environmentVariables) { $environmentVariables } else { throw "Environment variables are required" }
+class LaunchSettings {
+    [DockerComposeEnvironment]$ComposeEnvironment
+    [string]$LineEnding
+    [string]$DefaultProfileName
+
+    LaunchSettings([string]$composePath) {
+        $this.ComposeEnvironment = [DockerComposeEnvironment]::new($composePath)
         $this.LineEnding = "CRLF"
+        $this.DefaultProfileName = "Default"
     }
 
-    [void] ApplyEnvironmentToLaunchProfile([string]$projectDirectory, [string]$profileName) {
-        if (-not $this.EnvironmentVariables -or $this.EnvironmentVariables.Count -eq 0) {
+    [void] ApplyEnvironmentToLaunchProfile([string]$serviceName, [string]$projectDirectory) {
+        $this.ApplyEnvironmentToLaunchProfile($serviceName, $projectDirectory, $serviceName)
+    }
+
+    [void] ApplyEnvironmentToLaunchProfile([string]$serviceName, [string]$projectDirectory, [string]$profileName) {
+        $environmentVariables = $this.ComposeEnvironment.GetServiceEnvironmentVariables($serviceName)
+        if (-not $environmentVariables -or $environmentVariables.Count -eq 0) {
+            Write-Warning "Service '$serviceName' has no environment variables defined."
             return
         }
         $path = $this.GetLaunchSettingsPath($projectDirectory)
@@ -21,11 +31,38 @@ class LaunchSettings {
         $this.EnsureDirectory($path)
         $settings = $this.ReadLaunchSettings($path)
         $profiles = $settings["profiles"]
-        $this.EnsureLaunchProfile($profiles, $profileName)
-        $profiles[$profileName]["environmentVariables"] = $this.EnvironmentVariables
+        $this.ConfigureEnvironmentProfile($profiles, $profileName, $environmentVariables)
+        $this.ConfigureDefaultProfile($profiles, $profileName)
         $json = ConvertTo-Json -InputObject $settings -Depth 20
         Set-Content -Path $path -Value $json -Encoding UTF8
         Set-NormalizedLineEndings -Path $path -LineEnding $this.LineEnding
+    }
+
+    hidden [void] ConfigureEnvironmentProfile([hashtable]$profiles, [string]$profileName, [hashtable]$environmentVariables) {
+        $this.EnsureLaunchProfile($profiles, $profileName)
+        $profiles[$profileName]["commandName"] = "Project"
+        $profiles[$profileName]["environmentVariables"] = $environmentVariables
+    }
+
+    hidden [void] ConfigureDefaultProfile([hashtable]$profiles, [string]$profileName) {
+        $defaultName = $this.ResolveDefaultProfileName($profileName)
+        if ([string]::IsNullOrWhiteSpace($defaultName)) {
+            return
+        }
+        $this.EnsureLaunchProfile($profiles, $defaultName)
+        if ($profiles[$defaultName].ContainsKey("environmentVariables")) {
+            $profiles[$defaultName].Remove("environmentVariables")
+        }
+    }
+
+    hidden [string] ResolveDefaultProfileName([string]$profileName) {
+        if ([string]::IsNullOrWhiteSpace($this.DefaultProfileName)) {
+            return $null
+        }
+        if ($this.DefaultProfileName -eq $profileName) {
+            return "$profileName-default"
+        }
+        return $this.DefaultProfileName
     }
 
     hidden [string] GetLaunchSettingsPath([string]$projectDirectory) {

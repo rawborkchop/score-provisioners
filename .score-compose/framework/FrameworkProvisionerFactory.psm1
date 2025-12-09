@@ -12,13 +12,13 @@ class FrameworkProvisionerFactory {
         }
         $framework = $context.Framework
         $isChildProject = $context.IsChildProject
-        if ([string]::Equals($framework, "net", [System.StringComparison]::OrdinalIgnoreCase)) {
-            if ([string]::Equals($applicationType, "external", [System.StringComparison]::OrdinalIgnoreCase)) {
+        if ([string]::Equals($framework, "netframework", [System.StringComparison]::OrdinalIgnoreCase)) {
+            if ($isChildProject) {
                 return [NetFrameworkExternalProvisioner]::new($context)
             }
             return [NetFrameworkInternalProvisioner]::new($context)
         }
-        if ([string]::Equals($applicationType, "external", [System.StringComparison]::OrdinalIgnoreCase)) {
+        if ($isChildProject) {
             return [NetCoreExternalProvisioner]::new($context)
         }
         return [NetCoreInternalProvisioner]::new($context)
