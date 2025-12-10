@@ -55,23 +55,42 @@ if ($debug)
 }
 else
 {
-    $urls = @(
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/certificate.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/kirol_app.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/framework_spec.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/local_env_variables.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/helper_functions.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/external_app.ps1",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/01-script.provisioners.yaml",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/02-custom.volumes.provisioners.yaml",
-        "https://raw.githubusercontent.com/rawborkchop/score-provisioners/main/templates/03-container.provisioners.yaml"
-    )
+    $repoOwner = "rawborkchop"
+    $repoName = "score-provisioners"
+    $branch = "main"
+    $sourcePath = ".score-compose"
 
-    foreach ($url in $urls) {
-        $name = Split-Path $url -Leaf
-        $out = Join-Path -Path $dest -ChildPath $name
-        Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile $out
+    function Get-GitHubDirectoryContents {
+        param(
+            [string]$Owner,
+            [string]$Repo,
+            [string]$Path,
+            [string]$Branch,
+            [string]$DestinationBase
+        )
+        $apiUrl = "https://api.github.com/repos/$Owner/$Repo/contents/$Path`?ref=$Branch"
+        $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "PowerShell" }
+        foreach ($item in $response) {
+            $relativePath = $item.path -replace "^$([regex]::Escape($sourcePath))/?", ""
+            $localPath = Join-Path -Path $DestinationBase -ChildPath $relativePath
+            if ($item.type -eq "dir") {
+                if (-not (Test-Path -LiteralPath $localPath)) {
+                    New-Item -ItemType Directory -Path $localPath -Force | Out-Null
+                }
+                Get-GitHubDirectoryContents -Owner $Owner -Repo $Repo -Path $item.path -Branch $Branch -DestinationBase $DestinationBase
+            }
+            elseif ($item.type -eq "file") {
+                $parentDir = Split-Path -Path $localPath -Parent
+                if (-not [string]::IsNullOrWhiteSpace($parentDir) -and -not (Test-Path -LiteralPath $parentDir)) {
+                    New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+                }
+                Invoke-WebRequest -Uri $item.download_url -UseBasicParsing -OutFile $localPath
+            }
+        }
     }
+
+    Write-Host "Downloading .score-compose from GitHub repository..."
+    Get-GitHubDirectoryContents -Owner $repoOwner -Repo $repoName -Path $sourcePath -Branch $branch -DestinationBase $dest
 }
 
 if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {

@@ -1,0 +1,7 @@
+    {{WORKLOAD_NAME}}-{{CONTAINER}}:
+        entrypoint: ["/entrypoint.sh"]
+        volumes:
+        - type: bind
+            source: {{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}\entrypoint_dotnet_internal.sh
+            target: /entrypoint.sh
+
