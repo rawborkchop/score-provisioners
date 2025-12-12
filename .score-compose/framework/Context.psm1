@@ -17,13 +17,12 @@ class Context {
     Context(
         [hashtable]$data
     ) {
-        $this.Framework = $data.framework
-        $this.Version = $data.version
-        $this.Version = $data.version
-        $this.WorkloadName = $data.workloadName
+        $this.Framework = $data.resource_params.framework
+        $this.Version = $data.resource_params.version
+        $this.WorkloadName = $data.source_workload
         $this.SharedState = Initialize-SharedState -data $data
-        $this.SourceWorkloadPath = $data.shared_state.childrenPaths[$this.WorkloadName] ?? $this.ParentPath
         $this.ParentPath = $PWD.Path
+        $this.SourceWorkloadPath = $data.shared_state.childrenPaths[$this.WorkloadName] ?? $this.ParentPath
         $this.SolutionRoot = Find-ProjectRoot -startPath $this.ParentPath
         $this.Containers = Get-Containers -data $data
         $this.IsChildProject = $this.SourceWorkloadPath -ne $this.ParentPath

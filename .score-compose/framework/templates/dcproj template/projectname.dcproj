@@ -12,9 +12,8 @@
     <AdditionalComposeFilePaths>docker-compose.vs.debug.yaml</AdditionalComposeFilePaths>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="__PATH_TO_GENERATED_DOCKER_COMPOSE__.yaml" />
+    <None Include="__PATH_TO_GENERATED_DOCKER_COMPOSE__" />
     <None Include=".dockerignore" />
     <None Include="docker-compose.vs.debug.yml" />
-    <None Include="entrypoint.sh" />
   </ItemGroup>
 </Project>

@@ -5,7 +5,8 @@ class NetFrameworkInternalProvisioner : ProvisionerBase {
     NetFrameworkInternalProvisioner([Context]$context) : base($context) { }
 
     [void] Execute() { 
-        $this.DockerProject.EnsureDockerComposeProject()
+        ([ProvisionerBase]$this).Execute()
+        $this.DockerProject.UpdateComposeDebugFile("NetFramework_compose_override.yaml")
         $this.RegisterLaunchSettingsCommands()
     }
 
@@ -22,8 +23,13 @@ class NetFrameworkInternalProvisioner : ProvisionerBase {
     }
 
     hidden [string] BuildLaunchSettingsCommand([string]$serviceName, [string]$projectDirectory) {
-        $scriptPath = Join-Path -Path $this.Context.ParentPath -ChildPath ".score-compose\launchsettings.ps1"
-        return "$scriptPath -ServiceName `"$serviceName`" -ProjectDirectory `"$projectDirectory`""
+        $modulePath = Join-Path -Path $this.Context.ParentPath -ChildPath ".score-compose\framework\LaunchSettings.psm1"
+        $composePath = $this.Context.ComposePath
+        
+        $command = "Import-Module '$modulePath' -Force; " +
+                   "Invoke-LaunchSettingsUpdate -ComposePath '$composePath' -ServiceName '$serviceName' -ProjectDirectory '$projectDirectory'"
+        
+        return $command
     }
 
     hidden [void] RegisterSharedCommand([string]$command) {

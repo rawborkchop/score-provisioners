@@ -1,7 +1,6 @@
+using module './DockerComposeEnvironment.psm1'
 
 Set-StrictMode -Version Latest
-
-. "$PSScriptRoot\DockerComposeEnvironment.ps1"
 
 class LaunchSettings {
     [DockerComposeEnvironment]$ComposeEnvironment
@@ -112,3 +111,35 @@ class LaunchSettings {
         }
     }
 }
+
+<#
+.SYNOPSIS
+    Applies environment variables from docker-compose to a Visual Studio launch profile.
+.DESCRIPTION
+    Exported function that can be called after Import-Module to apply launch settings.
+.PARAMETER ComposePath
+    Path to the docker-compose.yaml file.
+.PARAMETER ServiceName
+    Name of the service in docker-compose.
+.PARAMETER ProjectDirectory
+    Path to the project directory containing Properties/launchSettings.json.
+#>
+
+function Invoke-LaunchSettingsUpdate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ComposePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectDirectory
+    )
+
+    $launchSettings = [LaunchSettings]::new($ComposePath)
+    $launchSettings.ApplyEnvironmentToLaunchProfile($ServiceName, $ProjectDirectory)
+}
+
+Export-ModuleMember -Function Invoke-LaunchSettingsUpdate

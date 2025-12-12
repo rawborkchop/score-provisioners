@@ -7,9 +7,6 @@ using module './NetCoreInternalProvisioner.psm1'
 
 class FrameworkProvisionerFactory {
     static [ProvisionerBase] Create([Context]$context) {
-        if (-not $context) {
-            return $null
-        }
         $framework = $context.Framework
         $isChildProject = $context.IsChildProject
         if ([string]::Equals($framework, "netframework", [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -18,9 +15,12 @@ class FrameworkProvisionerFactory {
             }
             return [NetFrameworkInternalProvisioner]::new($context)
         }
-        if ($isChildProject) {
-            return [NetCoreExternalProvisioner]::new($context)
+        if ([string]::Equals($framework, "netcore", [System.StringComparison]::OrdinalIgnoreCase)) {
+            if ($isChildProject) {
+                return [NetCoreExternalProvisioner]::new($context)
+            }
+            return [NetCoreInternalProvisioner]::new($context)
         }
-        return [NetCoreInternalProvisioner]::new($context)
+        return $null
     }
 }

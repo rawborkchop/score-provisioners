@@ -4,9 +4,11 @@ class DockerProject {
     [Context]$Context
     [string]$TemplatesPath
     [string]$FrameworkTemplatesPath
+    [hashtable]$Paths
 
     DockerProject([Context]$context) {
-        $this.TemplatesPath = Join-Path -Path $context.ParentPath -ChildPath ".score-compose/templates/dcproj template"
+        $this.Context = $context
+        $this.TemplatesPath = Join-Path -Path $context.ParentPath -ChildPath ".score-compose/framework/templates/dcproj template"
         $this.FrameworkTemplatesPath = Join-Path -Path $context.ParentPath -ChildPath ".score-compose/framework/templates"
     }
 
@@ -14,66 +16,42 @@ class DockerProject {
         if (-not $this.ShouldCreateProject()) {
             return
         }
-        $paths = $this.GetDockerProjectPaths()
-        if (-not $paths) {
-            return
-        }
-        $init = $this.InitializeDockerProjectDirectory($paths)
-        $this.DownloadDockerProjectTemplates($paths)
-        $this.UpdateDockerProjectFiles($paths, $init.ProjectGuid)
+        $this.Paths = $this.GetDockerProjectPaths()
+        $init = $this.InitializeDockerProjectDirectory($this.Paths)
+        $this.CopyDockerProjectTemplates($this.Paths)
+        $this.UpdateDockerProjectFiles($this.Paths, $init.ProjectGuid)
         if ($init.IsNew) {
-            $this.RegisterProjectInSolution($paths, $init.ProjectGuid)
+            write-host "Registering project in solution"
+            $this.RegisterProjectInSolution($this.Paths, $init.ProjectGuid)
         }
     }
 
     hidden [bool] ShouldCreateProject() {
-        if ([string]::IsNullOrWhiteSpace($this.SolutionRoot)) {
-            return $false
-        }
-        if ($this.IsChildProject) {
-            return $false
-        }
-        if (-not $this.Containers -or $this.Containers.Count -eq 0) {
+        if ($this.Context.IsChildProject) {
             return $false
         }
         return $true
     }
 
     hidden [string] ResolveDockerComposePath() {
-        if ([string]::IsNullOrWhiteSpace($this.SourceWorkloadPath)) {
-            return $null
-        }
-        return Join-Path -Path $this.SourceWorkloadPath -ChildPath "docker-compose.yaml"
+        return Join-Path -Path $this.Context.SourceWorkloadPath -ChildPath "docker-compose.yaml"
     }
 
     hidden [string] GetServiceLabel() {
-        $label = if ([string]::IsNullOrWhiteSpace($this.ServiceName)) { $this.WorkloadName } else { $this.ServiceName }
-        if ($this.Containers -and $this.Containers.Count -gt 0) {
-            $firstContainer = [string]$this.Containers[0]
-            if (-not [string]::IsNullOrWhiteSpace($firstContainer)) {
-                $label = "$label-$firstContainer"
-            }
+        $label = $this.Context.WorkloadName
+        if ($this.Context.Containers -and $this.Context.Containers.Count -gt 0) {
+            $firstContainer = [string]$this.Context.Containers[0]
+            $label = "$label-$firstContainer"
         }
         return $label
     }
 
-    hidden [string] GetComposeProjectLabel() {
-        if (-not [string]::IsNullOrWhiteSpace($this.ComposeProjectName)) {
-            return $this.ComposeProjectName
-        }
-        return $this.WorkloadName
-    }
-
     hidden [hashtable] GetDockerProjectPaths() {
         $result = [ordered]@{}
-        if ([string]::IsNullOrWhiteSpace($this.SolutionRoot)) {
-            return $result
-        }
-        $dcprojName = if ([string]::IsNullOrWhiteSpace($this.WorkloadName)) { "dockerproject" } else { $this.WorkloadName }
+        $dcprojName = $this.Context.WorkloadName
         $projectFileName = "$dcprojName.dcproj"
         $projectRelDir = Join-Path -Path "docker" -ChildPath $dcprojName
-        $targetDir = Join-Path -Path $this.SolutionRoot -ChildPath $projectRelDir
-        $result["ProjectFileName"] = $projectFileName
+        $targetDir = Join-Path -Path $this.Context.SolutionRoot -ChildPath $projectRelDir
         $result["ProjectRelDir"] = $projectRelDir
         $result["TargetDir"] = $targetDir
         $result["ProjectRelPath"] = Join-Path -Path $projectRelDir -ChildPath $projectFileName
@@ -86,7 +64,7 @@ class DockerProject {
             IsNew = $true
         }
         $targetDir = $paths["TargetDir"]
-        $projectFile = Join-Path -Path $targetDir -ChildPath $paths["ProjectFileName"]
+        $projectFile = Join-Path -Path $targetDir -ChildPath "$($this.Context.WorkloadName).dcproj"
         if (Test-Path -LiteralPath $targetDir) {
             $existing = $null
             if (Test-Path -LiteralPath $projectFile) {
@@ -102,21 +80,24 @@ class DockerProject {
         return $result
     }
 
-    hidden [void] DownloadDockerProjectTemplates([hashtable]$paths) {
+    hidden [void] CopyDockerProjectTemplates([hashtable]$paths) {
         $targetDir = $paths["TargetDir"]
-        $this.DownloadTemplateFile("projectname.dcproj", (Join-Path -Path $targetDir -ChildPath $paths["ProjectFileName"]))
-        $this.DownloadTemplateFile("launchSettings.json", (Join-Path -Path $targetDir -ChildPath "launchSettings.json"))
-        $this.DownloadTemplateFile("docker-compose.vs.debug.yml", (Join-Path -Path $targetDir -ChildPath "docker-compose.vs.debug.yml"))
-        $this.DownloadTemplateFile("entrypoint.sh", (Join-Path -Path $targetDir -ChildPath "entrypoint.sh"))
+        $this.CopyTemplateFile("projectname.dcproj", (Join-Path -Path $targetDir -ChildPath $paths["ProjectFileName"]))
+        $this.CopyTemplateFile("launchSettings.json", (Join-Path -Path $targetDir -ChildPath "launchSettings.json"))
+        $this.CopyTemplateFile("docker-compose.vs.debug.yml", (Join-Path -Path $targetDir -ChildPath "docker-compose.vs.debug.yml"))
+        $this.CopyTemplateFile("entrypoint.sh", (Join-Path -Path $targetDir -ChildPath "entrypoint.sh"))
         $dockerIgnore = Join-Path -Path $targetDir -ChildPath ".dockerignore"
-        $this.DownloadTemplateFile(".dockerignore", $dockerIgnore)
+        $this.CopyTemplateFile(".dockerignore", $dockerIgnore)
         Set-NormalizedLineEndings -Path $dockerIgnore -LineEnding "CRLF"
     }
 
-    hidden [void] DownloadTemplateFile([string]$fileName, [string]$destination) {
-        $baseUrl = $this.TemplatesBaseUrl.TrimEnd('/')
-        $url = "$baseUrl/$fileName"
-        Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile $destination
+    hidden [void] CopyTemplateFile([string]$fileName, [string]$destination) {
+        $sourcePath = Join-Path -Path $this.TemplatesPath -ChildPath $fileName
+        if (Test-Path -LiteralPath $sourcePath) {
+            Copy-Item -Path $sourcePath -Destination $destination -Force
+        } else {
+            throw "Template file not found: $sourcePath"
+        }
     }
 
     hidden [void] UpdateDockerProjectFiles([hashtable]$paths, [string]$projectGuid) {
@@ -183,10 +164,10 @@ class DockerProject {
     }
 
     hidden [System.IO.FileInfo] GetSolutionFile() {
-        if ([string]::IsNullOrWhiteSpace($this.SolutionRoot)) {
+        if ([string]::IsNullOrWhiteSpace($this.Context.SolutionRoot)) {
             return $null
         }
-        return Get-ChildItem -Path $this.SolutionRoot -Filter "*.sln" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        return Get-ChildItem -Path $this.Context.SolutionRoot -Filter "*.sln" -File -ErrorAction SilentlyContinue | Select-Object -First 1
     }
 
     hidden [string[]] InsertProjectBlock([string[]]$slnLines, [string]$projectGuid, [string]$projectRelPath) {
@@ -265,30 +246,24 @@ class DockerProject {
         )
     }
 
-    [void] UpdateComposeDebugFileAndAddEntrypoint([string] $templateName, [string] $entrypointName) {
-        $composeServiceTemplate = Join-Path -Path $this.TemplatesPath -ChildPath $templateName
-        $composeDebugFile = Join-Path -Path $this.targetDir -ChildPath "docker-compose.vs.debug.yml"
+    [void] UpdateComposeDebugFile([string] $templateName) {
+        $composeServiceTemplate = Join-Path -Path $this.FrameworkTemplatesPath -ChildPath $templateName
+        $composeDebugFile = Join-Path -Path $this.Paths["TargetDir"] -ChildPath "docker-compose.vs.debug.yml"
 
         $composeContent = Get-Content -Path $composeDebugFile -Raw
         
         if ([string]::IsNullOrWhiteSpace($composeContent)) {
             throw "composeContent is null or empty"
         }
-
-        foreach ($service in $this.Containers) {
+        foreach ($container in $this.Context.Containers) {
             $composeServiceTemplateContent = Get-Content -Path $composeServiceTemplate -Raw
-            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{SERVICE_NAME}}', $this.context.WorkloadName)
-            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{CONTAINER}}', $service)
-            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}', $this.targetDir + "\" + $templateName)
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{WORKLOAD_NAME}}', $this.Context.WorkloadName)
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{CONTAINER}}', $container)
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}', $this.Context.targetDir)
             $composeContent = $composeContent + $composeServiceTemplateContent
+            $composeContent = $composeContent.Replace('{{COMPOSE_PROJECT_NAME}}', $this.Context.WorkloadName)
         }
         Set-Content -Path $composeDebugFile -Value $composeContent -Encoding UTF8
-        Set-NormalizedLineEndings -Path $composeDebugFile -LineEnding "CRLF"      
-        
-        $entrypointTemplate = Join-Path -Path $this.TemplatesPath -ChildPath $entrypointName
-        $entrypointTargetFile = Join-Path -Path $this.targetDir -ChildPath "entrypoint.sh"
-        $entrypointContent = Get-Content -Path $entrypointTemplate -Raw
-        Set-Content -Path $entrypointTargetFile -Value $entrypointContent -Encoding UTF8   
-        Set-NormalizedLineEndings -Path $entrypointTargetFile -LineEnding "CRLF"
+        Set-NormalizedLineEndings -Path $composeDebugFile -LineEnding "CRLF"
     }
 }

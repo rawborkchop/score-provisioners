@@ -42,7 +42,7 @@ function Find-ProjectRoot {
     
     $currentPath = $startPath
     while ($currentPath -ne $null) {
-        $slnFiles = Get-ChildItem -Path $currentPath -Filter "*.sln" -ErrorAction SilentlyContinue
+        $slnFiles = @(Get-ChildItem -Path $currentPath -Filter "*.sln" -ErrorAction SilentlyContinue)
         if ($slnFiles.Count -gt 0) {
             return $currentPath
         }

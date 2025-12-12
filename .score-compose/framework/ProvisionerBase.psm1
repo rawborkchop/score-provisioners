@@ -7,7 +7,7 @@ class ProvisionerBase {
 
     ProvisionerBase([Context]$context) {
         $this.Context = $context
-        $this.DockerProject = new DockerProject($this.Context)
+        $this.DockerProject = [DockerProject]::new($this.Context)
     }
 
     [void] Execute() {

@@ -28,29 +28,43 @@ $dest = Join-Path -Path (Get-Location).Path -ChildPath '.score-compose'
 if ($debug) 
 {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-    Write-Host "DEBUG MODE: templates will be updated from local source at $scriptDir..."
+    $sourcePath = ".score-compose"
+    $localSourceDir = Join-Path -Path $scriptDir -ChildPath $sourcePath
 
-    $templates = @(
-        "certificate.ps1",
-        "kirol_app.ps1",
-        "framework_spec.ps1",
-        "local_env_variables.ps1",
-        "helper_functions.ps1",
-        "external_app.ps1",
-        "docker_file_generation.ps1",
-        "01-script.provisioners.yaml",
-        "02-custom.volumes.provisioners.yaml",
-        "03-container.provisioners.yaml"
-    )
-
-    foreach ($template in $templates) {
-        $src = Join-Path -Path $scriptDir -ChildPath "templates\$template"
-        $dst = Join-Path -Path $dest -ChildPath $template
-        if (Test-Path $src) {
-            Copy-Item -Path $src -Destination $dst -Force
-        } else {
-            Write-Host "ADVERTENCIA: No se encontró el template $template en $src"
+    function Copy-LocalDirectoryContents {
+        param(
+            [string]$SourceDir,
+            [string]$SourceBasePath,
+            [string]$DestinationBase
+        )
+        
+        $items = Get-ChildItem -Path $SourceDir -Force
+        foreach ($item in $items) {
+            $relativePath = $item.FullName -replace "^$([regex]::Escape($SourceBasePath))\\?", ""
+            $localPath = Join-Path -Path $DestinationBase -ChildPath $relativePath
+            
+            if ($item.PSIsContainer) {
+                if (-not (Test-Path -LiteralPath $localPath)) {
+                    New-Item -ItemType Directory -Path $localPath -Force | Out-Null
+                }
+                Copy-LocalDirectoryContents -SourceDir $item.FullName -SourceBasePath $SourceBasePath -DestinationBase $DestinationBase
+            }
+            else {
+                $parentDir = Split-Path -Path $localPath -Parent
+                if (-not [string]::IsNullOrWhiteSpace($parentDir) -and -not (Test-Path -LiteralPath $parentDir)) {
+                    New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+                }
+                Copy-Item -Path $item.FullName -Destination $localPath -Force
+            }
         }
+    }
+
+    Write-Host "DEBUG MODE: Copying .score-compose from local source at $localSourceDir..."
+    if (Test-Path $localSourceDir) {
+        Copy-LocalDirectoryContents -SourceDir $localSourceDir -SourceBasePath $localSourceDir -DestinationBase $dest
+    } else {
+        Write-Host "ERROR: Local source directory not found at $localSourceDir"
+        Exit 1
     }
 }
 else

@@ -4,5 +4,5 @@
         image: mcr.microsoft.com/dotnet/sdk:latest
         volumes:
         - type: bind
-            source: {{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}\entrypoint_dotnet_internal.sh
+            source: {{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}\entrypoint.sh
             target: /entrypoint.sh

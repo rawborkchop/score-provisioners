@@ -82,7 +82,6 @@ class DockerComposeEnvironment {
         if ($null -eq $value) {
             return $value
         }
-        # Ensures backslashes are not over-escaped in the resulting JSON.
         return $value -replace '\\\\', '\'
     }
 }

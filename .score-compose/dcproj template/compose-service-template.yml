@@ -1,6 +1,0 @@
-  __SERVICE_NAME__:
-    entrypoint: ["/entrypoint.sh"]
-    volumes:
-      - type: bind
-        source: __ABSOLUTE_PATH_TO_ENTRYPOINT_SH__\entrypoint.sh
-        target: /entrypoint.sh

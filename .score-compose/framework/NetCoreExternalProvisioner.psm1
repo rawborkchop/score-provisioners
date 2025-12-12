@@ -7,7 +7,7 @@ class NetCoreExternalProvisioner : ProvisionerBase {
 
     [void] Execute() {
         [ProvisionerBase]::Execute()
-        $dockerfile = new Dockerfile($this.Context.ParentPath, 
+        $dockerfile = [Dockerfile]::new($this.Context.ParentPath, 
             $this.Context.SourceWorkloadPath, 
             $this.Context.Version, 
             "netcore_external.Dockerfile")
