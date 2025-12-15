@@ -1,5 +1,4 @@
 services:
     {{WORKLOAD_NAME}}-{{CONTAINER}}:
         build: !reset null
-        image: mcr.microsoft.com/dotnet/sdk:{{DOTNET_VERSION}}
-
+        image: mcr.microsoft.com/dotnet/sdk:latest

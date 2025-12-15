@@ -1,5 +1,5 @@
 using module './DockerComposeEnvironment.psm1'
-
+. .score-compose/helper_functions.ps1
 Set-StrictMode -Version Latest
 
 class LaunchSettings {
@@ -38,6 +38,8 @@ class LaunchSettings {
     }
 
     hidden [void] ConfigureEnvironmentProfile([hashtable]$profiles, [string]$profileName, [hashtable]$environmentVariables) {
+        write-host "ConfigureEnvironmentProfile: $profileName"
+        write-host "profiles: $profiles"
         $this.EnsureLaunchProfile($profiles, $profileName)
         $profiles[$profileName]["commandName"] = "Project"
         $profiles[$profileName]["environmentVariables"] = $environmentVariables
@@ -71,35 +73,37 @@ class LaunchSettings {
         return Join-Path -Path $projectDirectory -ChildPath "Properties\launchSettings.json"
     }
 
+    hidden [void] EnsureLaunchProfile([hashtable]$profiles, [string]$profileName) {
+        if (-not $profiles.Contains($profileName)) {
+            $profiles[$profileName] = @{}
+        }
+        if (-not $profiles[$profileName].Contains("commandName") -or [string]::IsNullOrWhiteSpace([string]$profiles[$profileName]["commandName"])) {
+            $profiles[$profileName]["commandName"] = "Project"
+        }
+    }
+
     hidden [hashtable] ReadLaunchSettings([string]$path) {
-        $result = [ordered]@{}
+        $result = @{}
         if (Test-Path -LiteralPath $path) {
             $raw = Get-Content -Path $path -Raw
             if (-not [string]::IsNullOrWhiteSpace($raw)) {
                 try {
-                    $result = ConvertFrom-Json -InputObject $raw -AsHashtable -Depth 20
+                    $result = $raw | ConvertFrom-Json -AsHashtable -Depth 20
                 } catch {
-                    $result = [ordered]@{}
+                    $result = @{}
                 }
             }
         }
         if (-not $result) {
-            $result = [ordered]@{}
+            $result = @{}
         }
-        if (-not $result.ContainsKey("profiles") -or -not ($result["profiles"] -is [System.Collections.IDictionary])) {
-            $result["profiles"] = [ordered]@{}
+        $result = [Hashtable]$result
+        if (-not ($result.Contains("profiles"))) {
+            write-host "Adding profiles"
+            $result.Add("profiles", @{})
         }
         return $result
-    }
-
-    hidden [void] EnsureLaunchProfile([hashtable]$profiles, [string]$profileName) {
-        if (-not $profiles.ContainsKey($profileName) -or -not ($profiles[$profileName] -is [System.Collections.IDictionary])) {
-            $profiles[$profileName] = [ordered]@{}
-        }
-        if (-not $profiles[$profileName].ContainsKey("commandName") -or [string]::IsNullOrWhiteSpace([string]$profiles[$profileName]["commandName"])) {
-            $profiles[$profileName]["commandName"] = "Project"
-        }
-    }
+    }   
 
     hidden [void] EnsureDirectory([string]$path) {
         $directory = Split-Path -Path $path -Parent
@@ -111,35 +115,3 @@ class LaunchSettings {
         }
     }
 }
-
-<#
-.SYNOPSIS
-    Applies environment variables from docker-compose to a Visual Studio launch profile.
-.DESCRIPTION
-    Exported function that can be called after Import-Module to apply launch settings.
-.PARAMETER ComposePath
-    Path to the docker-compose.yaml file.
-.PARAMETER ServiceName
-    Name of the service in docker-compose.
-.PARAMETER ProjectDirectory
-    Path to the project directory containing Properties/launchSettings.json.
-#>
-
-function Invoke-LaunchSettingsUpdate {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ComposePath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ServiceName,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ProjectDirectory
-    )
-
-    $launchSettings = [LaunchSettings]::new($ComposePath)
-    $launchSettings.ApplyEnvironmentToLaunchProfile($ServiceName, $ProjectDirectory)
-}
-
-Export-ModuleMember -Function Invoke-LaunchSettingsUpdate

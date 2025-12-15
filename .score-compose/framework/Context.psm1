@@ -10,6 +10,7 @@ class Context {
     [string]$SolutionRoot
     [string[]]$Containers
     [bool]$IsChildProject
+    [bool]$IsExternal
     [hashtable]$Data
 
     [string]$ComposePath
@@ -26,6 +27,7 @@ class Context {
         $this.SolutionRoot = Find-ProjectRoot -startPath $this.ParentPath
         $this.Containers = Get-Containers -data $data
         $this.IsChildProject = $this.SourceWorkloadPath -ne $this.ParentPath
+        $this.IsExternal = $this.SourceWorkloadPath -like "*/packages/*"
         $this.Data = $data
         
         $this.ComposePath = Join-Path -Path $this.ParentPath -ChildPath "docker-compose.yaml"

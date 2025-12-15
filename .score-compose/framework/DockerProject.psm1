@@ -13,9 +13,6 @@ class DockerProject {
     }
 
     [void] EnsureDockerComposeProject() {
-        if (-not $this.ShouldCreateProject()) {
-            return
-        }
         $this.Paths = $this.GetDockerProjectPaths()
         $init = $this.InitializeDockerProjectDirectory($this.Paths)
         $this.CopyDockerProjectTemplates($this.Paths)
@@ -24,17 +21,6 @@ class DockerProject {
             write-host "Registering project in solution"
             $this.RegisterProjectInSolution($this.Paths, $init.ProjectGuid)
         }
-    }
-
-    hidden [bool] ShouldCreateProject() {
-        if ($this.Context.IsChildProject) {
-            return $false
-        }
-        return $true
-    }
-
-    hidden [string] ResolveDockerComposePath() {
-        return Join-Path -Path $this.Context.SourceWorkloadPath -ChildPath "docker-compose.yaml"
     }
 
     hidden [string] GetServiceLabel() {
@@ -82,9 +68,9 @@ class DockerProject {
 
     hidden [void] CopyDockerProjectTemplates([hashtable]$paths) {
         $targetDir = $paths["TargetDir"]
-        $this.CopyTemplateFile("projectname.dcproj", (Join-Path -Path $targetDir -ChildPath $paths["ProjectFileName"]))
+        $this.CopyTemplateFile("projectname.dcproj", (Join-Path -Path $targetDir -ChildPath "$($this.Context.WorkloadName).dcproj"))
         $this.CopyTemplateFile("launchSettings.json", (Join-Path -Path $targetDir -ChildPath "launchSettings.json"))
-        $this.CopyTemplateFile("docker-compose.vs.debug.yml", (Join-Path -Path $targetDir -ChildPath "docker-compose.vs.debug.yml"))
+        $this.CopyTemplateFile("docker-compose.vs.debug.yaml", (Join-Path -Path $targetDir -ChildPath "docker-compose.vs.debug.yaml"))
         $this.CopyTemplateFile("entrypoint.sh", (Join-Path -Path $targetDir -ChildPath "entrypoint.sh"))
         $dockerIgnore = Join-Path -Path $targetDir -ChildPath ".dockerignore"
         $this.CopyTemplateFile(".dockerignore", $dockerIgnore)
@@ -102,7 +88,7 @@ class DockerProject {
 
     hidden [void] UpdateDockerProjectFiles([hashtable]$paths, [string]$projectGuid) {
         $targetDir = $paths["TargetDir"]
-        $projectFile = Join-Path -Path $targetDir -ChildPath $paths["ProjectFileName"]
+        $projectFile = Join-Path -Path $targetDir -ChildPath "$($this.Context.WorkloadName).dcproj"
         $this.UpdateProjectFile($projectFile, $projectGuid)
         $this.UpdateDockerIgnore($targetDir)
         $this.UpdateLaunchSettingsFile($targetDir)
@@ -116,13 +102,12 @@ class DockerProject {
         if ([string]::IsNullOrWhiteSpace($content)) {
             return
         }
-        $dockerComposePath = $this.ResolveDockerComposePath()
+        $dockerComposePath = Join-Path -Path $this.Context.SourceWorkloadPath -ChildPath "docker-compose"
         if ($dockerComposePath) {
             $normalizedPath = $dockerComposePath.Replace('\', '/')
-            $content = $content.Replace('__PATH_TO_GENERATED_DOCKER_COMPOSE__', $normalizedPath)
+            $content = $content.Replace('{{PATH_TO_GENERATED_DOCKER_COMPOSE_YAML_NO_EXTENSION}}', $normalizedPath)
         }
-        $content = $content.Replace('docker-compose.vs.debug.yaml', 'docker-compose.vs.debug.yml')
-        $content = [regex]::Replace($content, '<ProjectGuid>\s*__PROJECT_GUID__\?\s*</ProjectGuid>', "<ProjectGuid>$projectGuid</ProjectGuid>")
+        $content = [regex]::Replace($content, '<ProjectGuid>\s*</ProjectGuid>', "<ProjectGuid>$projectGuid</ProjectGuid>")
         Set-Content -Path $projectFile -Value $content -Encoding UTF8
         Set-NormalizedLineEndings -Path $projectFile -LineEnding "CRLF"
     }
@@ -143,11 +128,11 @@ class DockerProject {
         if ([string]::IsNullOrWhiteSpace($launchContent)) {
             return
         }
-        $dockerComposePath = $this.ResolveDockerComposePath()
+        $dockerComposePath = Join-Path -Path $this.Context.SourceWorkloadPath -ChildPath "docker-compose.yaml"
         if ($dockerComposePath) {
-            $launchContent = $launchContent.Replace('__PATH_TO_GENERATED_DOCKER_COMPOSE__', $dockerComposePath.Replace('\', '/'))
+            $launchContent = $launchContent.Replace('{{PATH_TO_GENERATED_DOCKER_COMPOSE}}', $dockerComposePath.Replace('\', '/'))
         }
-        $launchContent = $launchContent.Replace('__SERVICE_NAME__', $this.GetServiceLabel())
+        $launchContent = $launchContent.Replace('{{SERVICE_NAME}}', $this.GetServiceLabel())
         Set-Content -Path $launchSettingsFile -Value $launchContent -Encoding UTF8
         Set-NormalizedLineEndings -Path $launchSettingsFile -LineEnding "CRLF"
     }
@@ -248,18 +233,15 @@ class DockerProject {
 
     [void] UpdateComposeDebugFile([string] $templateName) {
         $composeServiceTemplate = Join-Path -Path $this.FrameworkTemplatesPath -ChildPath $templateName
-        $composeDebugFile = Join-Path -Path $this.Paths["TargetDir"] -ChildPath "docker-compose.vs.debug.yml"
+        $composeDebugFile = Join-Path -Path $this.Paths["TargetDir"] -ChildPath "docker-compose.vs.debug.yaml"
 
         $composeContent = Get-Content -Path $composeDebugFile -Raw
         
-        if ([string]::IsNullOrWhiteSpace($composeContent)) {
-            throw "composeContent is null or empty"
-        }
         foreach ($container in $this.Context.Containers) {
             $composeServiceTemplateContent = Get-Content -Path $composeServiceTemplate -Raw
             $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{WORKLOAD_NAME}}', $this.Context.WorkloadName)
             $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{CONTAINER}}', $container)
-            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}', $this.Context.targetDir)
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}', $this.Paths["TargetDir"])
             $composeContent = $composeContent + $composeServiceTemplateContent
             $composeContent = $composeContent.Replace('{{COMPOSE_PROJECT_NAME}}', $this.Context.WorkloadName)
         }

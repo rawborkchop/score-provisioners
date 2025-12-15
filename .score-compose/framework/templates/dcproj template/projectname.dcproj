@@ -5,15 +5,16 @@
     <DockerTargetOS>Linux</DockerTargetOS>
     <DockerPublishLocally>True</DockerPublishLocally>
     <ProjectGuid></ProjectGuid>
-    <DockerComposeBaseFilePath>__PATH_TO_GENERATED_DOCKER_COMPOSE__</DockerComposeBaseFilePath>
+    <DockerComposeBaseFilePath>{{PATH_TO_GENERATED_DOCKER_COMPOSE_YAML_NO_EXTENSION}}</DockerComposeBaseFilePath>
     <DependencyAwareStart>true</DependencyAwareStart>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
     <AdditionalComposeFilePaths>docker-compose.vs.debug.yaml</AdditionalComposeFilePaths>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="__PATH_TO_GENERATED_DOCKER_COMPOSE__" />
+    <None Include="{{PATH_TO_GENERATED_DOCKER_COMPOSE_YAML_NO_EXTENSION}}.yaml" />
     <None Include=".dockerignore" />
-    <None Include="docker-compose.vs.debug.yml" />
+    <None Include="docker-compose.vs.debug.yaml" />
+    <None Include="entrypoint.sh" />
   </ItemGroup>
 </Project>

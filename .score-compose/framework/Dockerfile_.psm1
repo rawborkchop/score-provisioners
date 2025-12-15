@@ -18,7 +18,7 @@ class Dockerfile {
         }
 
     hidden [void] PrepareContent() {
-        $templatePath = Join-Path -Path $this.ParentPath -ChildPath ".score-compose/templates/"  + $this.TemplateName
+        $templatePath = Join-Path -Path $this.ParentPath -ChildPath ".score-compose/framework/templates/$($this.TemplateName)"
         if (-not (Test-Path -LiteralPath $templatePath)) {
             throw "Dockerfile template not found at '$templatePath'"
         }

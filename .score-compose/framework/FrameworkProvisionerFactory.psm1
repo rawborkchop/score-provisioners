@@ -8,15 +8,15 @@ using module './NetCoreInternalProvisioner.psm1'
 class FrameworkProvisionerFactory {
     static [ProvisionerBase] Create([Context]$context) {
         $framework = $context.Framework
-        $isChildProject = $context.IsChildProject
+        $isExternal = $context.IsExternal
         if ([string]::Equals($framework, "netframework", [System.StringComparison]::OrdinalIgnoreCase)) {
-            if ($isChildProject) {
+            if ($isExternal) {
                 return [NetFrameworkExternalProvisioner]::new($context)
             }
             return [NetFrameworkInternalProvisioner]::new($context)
         }
         if ([string]::Equals($framework, "netcore", [System.StringComparison]::OrdinalIgnoreCase)) {
-            if ($isChildProject) {
+            if ($isExternal) {
                 return [NetCoreExternalProvisioner]::new($context)
             }
             return [NetCoreInternalProvisioner]::new($context)

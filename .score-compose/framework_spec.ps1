@@ -13,7 +13,7 @@ trap {
 }
 
 $inputJson = [Console]::In.ReadToEnd()
-$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
+#$inputJson | Out-File -FilePath "input_data.json" -Encoding UTF8
 
 $data = $inputJson | ConvertFrom-Json -AsHashtable -Depth 10
 

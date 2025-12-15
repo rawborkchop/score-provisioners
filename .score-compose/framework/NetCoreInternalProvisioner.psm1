@@ -6,12 +6,15 @@ class NetCoreInternalProvisioner : ProvisionerBase {
     NetCoreInternalProvisioner([Context]$context) : base($context) {}
 
     [void] Execute() {
-        [ProvisionerBase]::Execute()
-        $dockerfile = new Dockerfile($this.Context.ParentPath,
+        ([ProvisionerBase]$this).Execute()
+        $dockerfile = [Dockerfile]::new($this.Context.ParentPath,
             $this.Context.SourceWorkloadPath,
             $this.Context.Version,
-            "netcore_internal.Dockerfile")
+            "NetCore_internal.Dockerfile")
         $dockerfile.SetDockerfile()
-        $this.DockerProject.UpdateComposeDebugFile("NetCoreInternal_compose_override.yaml")
+    }
+
+    hidden [void] UpdateComposeDebugFile() {
+        $this.DockerProject.UpdateComposeDebugFile("NetCore_compose_override.yaml")
     }
 }

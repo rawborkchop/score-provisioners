@@ -3,7 +3,7 @@
         "Docker Compose": {
             "commandName": "DockerCompose",
             "commandVersion": "1.0",
-            "dockerComposeFile": "{{PATH_TO_GENERATED_DOCKER_COMPOSE}}.yaml",
+            "dockerComposeFile": "{{PATH_TO_GENERATED_DOCKER_COMPOSE}}"
         }
     }
 }
