@@ -1,4 +1,1 @@
 FROM mcr.microsoft.com/dotnet/aspnet:{{DOTNET_VERSION}} AS runtime
-WORKDIR /app
-COPY . .
-

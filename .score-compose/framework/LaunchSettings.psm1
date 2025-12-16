@@ -38,8 +38,6 @@ class LaunchSettings {
     }
 
     hidden [void] ConfigureEnvironmentProfile([hashtable]$profiles, [string]$profileName, [hashtable]$environmentVariables) {
-        write-host "ConfigureEnvironmentProfile: $profileName"
-        write-host "profiles: $profiles"
         $this.EnsureLaunchProfile($profiles, $profileName)
         $profiles[$profileName]["commandName"] = "Project"
         $profiles[$profileName]["environmentVariables"] = $environmentVariables
@@ -99,7 +97,6 @@ class LaunchSettings {
         }
         $result = [Hashtable]$result
         if (-not ($result.Contains("profiles"))) {
-            write-host "Adding profiles"
             $result.Add("profiles", @{})
         }
         return $result

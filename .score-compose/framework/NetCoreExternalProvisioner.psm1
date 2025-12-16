@@ -10,7 +10,7 @@ class NetCoreExternalProvisioner : ProvisionerBase {
         $dockerfile = [Dockerfile]::new($this.Context.ParentPath, 
             $this.Context.SourceWorkloadPath, 
             $this.Context.Version, 
-            "netcore_external.Dockerfile")
+            "NetCore_external.Dockerfile")
         $dockerfile.SetDockerfile()
     }
     hidden [void] UpdateComposeDebugFile() {

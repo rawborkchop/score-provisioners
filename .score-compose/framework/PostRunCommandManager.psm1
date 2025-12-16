@@ -41,7 +41,6 @@ class PostRunCommandManager {
     }
 
     hidden [string] BuildLaunchSettingsCommand([string]$serviceName, [string]$projectDirectory) {
-        $modulePath = Join-Path -Path $this.Context.ParentPath -ChildPath ".score-compose\framework\LaunchSettings.psm1"
         $composePath = $this.Context.ComposePath
         
         $command = "using module '.score-compose\framework\LaunchSettings.psm1';" +

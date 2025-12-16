@@ -1,1 +1,1 @@
-dotnet run {{DLL_NAME}}
+dotnet {{DLL_NAME}}

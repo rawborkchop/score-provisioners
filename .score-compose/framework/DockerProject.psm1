@@ -242,6 +242,7 @@ class DockerProject {
             $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{WORKLOAD_NAME}}', $this.Context.WorkloadName)
             $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{CONTAINER}}', $container)
             $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_ENTRYPOINT_SH}}', $this.Paths["TargetDir"])
+            $composeServiceTemplateContent = $composeServiceTemplateContent.Replace('{{ABSOLUTE_PATH_TO_WORKLOAD}}', $this.Context.SourceWorkloadPath)
             $composeContent = $composeContent + $composeServiceTemplateContent
             $composeContent = $composeContent.Replace('{{COMPOSE_PROJECT_NAME}}', $this.Context.WorkloadName)
         }
