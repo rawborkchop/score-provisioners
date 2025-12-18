@@ -159,7 +159,7 @@ class DockerProject {
         $lines = if ($slnLines) { $slnLines } else { @() }
         $projectTypeGuid = "{E53339B2-1760-4266-BCC7-CA923CBCF16C}"
         $projGuidBraced = "{" + ($projectGuid.ToUpper()) + "}"
-        $projectName = if ([string]::IsNullOrWhiteSpace($this.WorkloadName)) { "DockerProject" } else { $this.WorkloadName }
+        $projectName = $this.Context.WorkloadName
         $projectBlock = @(
             "Project(`"$projectTypeGuid`") = `"$projectName`", `"$projectRelPath`", `"$projGuidBraced`"",
             "EndProject"
